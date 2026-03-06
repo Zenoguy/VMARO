@@ -1,0 +1,91 @@
+{
+  "root": "Federated Learning in Healthcare",
+  "themes": [
+    {
+      "theme_id": "T1",
+      "theme_name": "Privacy and Security Constraints",
+      "papers": [
+        {
+          "title": "Federated Learning for Medical Image Analysis: A Review",
+          "year": 2024,
+          "summary": "This paper presents a comprehensive review of federated learning applications in medical imaging. It discusses privacy-preserving techniques and their effectiveness across multiple hospital domains.",
+          "contribution": "Provides a taxonomy of privacy-preserving techniques specific to medical imaging constraints.",
+          "source": "https://doi.org/10.1000/182"
+        },
+        {
+          "title": "Differential Privacy in Medical Federated Learning",
+          "year": 2022,
+          "summary": "Explores the trade-off between model utility and privacy guarantees when applying differential privacy to federated clinical workflows.",
+          "contribution": "Demonstrates that adaptive clipping significantly improves convergence on heterogeneous medical data.",
+          "source": "https://doi.org/10.1000/184"
+        },
+        {
+          "title": "Secure Multiparty Computation for Healthcare Analytics",
+          "year": 2021,
+          "summary": "Compares federated learning against traditional secure multiparty computation for multi-institutional healthcare analytics on tabular data.",
+          "contribution": "Provides a comprehensive benchmarking suite showing FL is 100x faster than SMPC for neural networks, though with weaker formal privacy.",
+          "source": "https://doi.org/10.1000/189"
+        }
+      ]
+    },
+    {
+      "theme_id": "T2",
+      "theme_name": "Data Heterogeneity and Robustness",
+      "papers": [
+        {
+          "title": "Robust Federated Learning with Noisy Labels in Healthcare",
+          "year": 2023,
+          "summary": "The authors propose a robust federated learning framework that handles noisy labels effectively. The approach is validated on multi-center electronic health records.",
+          "contribution": "Introduced a novel robust aggregation method that outperforms FedAvg by 15% on datasets with noisy labels.",
+          "source": "https://doi.org/10.1000/183"
+        },
+        {
+          "title": "Personalized Federated Learning in Oncology",
+          "year": 2024,
+          "summary": "A framework that allows individual hospitals to maintain personalized models while still benefiting from shared representations in rare cancer detection.",
+          "contribution": "Introduced a decoupled representation learning approach that separates the base extractor from the hospital-specific classifier.",
+          "source": "https://doi.org/10.1000/188"
+        },
+        {
+          "title": "Fairness in Federated Learning for Dermatology",
+          "year": 2023,
+          "summary": "Identifies bias in multi-hospital dermatology datasets where skin tone representation is highly skewed across different geographic clients.",
+          "contribution": "A fairness-aware aggregation rule that explicitly balances performance across diverse racial demographics.",
+          "source": "https://doi.org/10.1000/190"
+        }
+      ]
+    },
+    {
+      "theme_id": "T3",
+      "theme_name": "Efficiency and Missing Data",
+      "papers": [
+        {
+          "title": "Handling Missing Modalities in Centralized Medical Imaging",
+          "year": 2021,
+          "summary": "This work addresses the problem of missing MRI sequences in single-hospital setups using generative adversarial networks to impute missing data.",
+          "contribution": "A novel cross-modal attention mechanism that robustly synthesizes missing T1 or T2 scans from available modalities.",
+          "source": "https://doi.org/10.1000/185"
+        },
+        {
+          "title": "Communication-Efficient Federated Learning for EHR Data",
+          "year": 2022,
+          "summary": "Proposes a compression technique specifically designed for high-dimensional but sparse electronic health record data to reduce communication overhead.",
+          "contribution": "Achieves 40x communication reduction with negligible drop in prediction accuracy for patient readmission.",
+          "source": "https://doi.org/10.1000/187"
+        },
+        {
+          "title": "Federated Semi-Supervised Learning for COVID-19 Detection",
+          "year": 2023,
+          "summary": "Leverages unlabelled CT scans from multiple hospitals alongside a small set of annotated data to create a robust COVID-19 screening tool.",
+          "contribution": "A pseudo-labeling strategy optimized for non-IID data distributions across clients.",
+          "source": "https://doi.org/10.1000/186"
+        }
+      ]
+    }
+  ],
+  "emerging_directions": [
+    "Addressing severe modality missingness across clients (cross-silo modality imbalance).",
+    "Continual federated learning to adapt to drifting clinical protocols over time.",
+    "Federated unlearning to strictly comply with localized patient right-to-be-forgotten requests without full retraining."
+  ]
+}

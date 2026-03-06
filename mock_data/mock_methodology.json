@@ -1,0 +1,22 @@
+{
+  "suggested_datasets": [
+    "BraTS 2021 (Brain Tumor Segmentation)",
+    "MIMIC-CXR (Chest X-rays)"
+  ],
+  "evaluation_metrics": [
+    "Dice Similarity Coefficient (DSC)",
+    "Communication Complexity (Rounds to convergence)",
+    "Robustness to missing modalities (Drop in DSC)"
+  ],
+  "baseline_models": [
+    "FedAvg with modality dropout",
+    "FedProx",
+    "Centralized model (Upper bound)"
+  ],
+  "experimental_design": "1. Partition BraTS into 4 simulated hospital clients. 2. Artificially drop T1, T2, FLAIR modalities randomly across clients. 3. Train the proposed missing-modality aware aggregation strategy against baseline FedAvg. 4. Measure convergence speed and final DSC.",
+  "tools_and_frameworks": [
+    "PyTorch",
+    "Flower (flwr)",
+    "MONAI"
+  ]
+}

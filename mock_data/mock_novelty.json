@@ -1,0 +1,13 @@
+{
+  "closest_theme_ids": [
+    "T2",
+    "T3"
+  ],
+  "closest_papers": [
+    "Handling Missing Modalities in Centralized Medical Imaging",
+    "Robust Federated Learning with Noisy Labels in Healthcare"
+  ],
+  "similarity_reasoning": "The proposal focuses heavily on handling data irregularities in a federated context (similar to the T2 robustness papers) and specifically addresses missing modalities (similar to the T3 centralized paper). However, unlike the T3 paper, this proposal tackles missing modalities *across* distributed clients rather than imputing them in a centralized dataset.",
+  "novelty_score": 88,
+  "score_justification": "While handling missing modalities is explored in centralized medical imaging, and robust aggregation exists for noisy federated labels, building an aggregation strategy that guarantees bounds when entire clients are missing primary modalities is highly novel. It sits at a mostly unexplored intersection of T2 and T3."
+}
