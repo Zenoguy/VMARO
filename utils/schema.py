@@ -1,4 +1,3 @@
-import itertools
 import os
 import json
 import re
@@ -6,14 +5,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Filter out empty or None keys
-_keys = [k for k in [os.getenv(f"GEMINI_KEY_{i}") for i in range(1, 4)] if k]
-# Use itertools.cycle for round-robin, fallback to a single empty string if no keys exist
-_key_pool = itertools.cycle(_keys) if _keys else itertools.cycle([""])
-
 def get_api_key() -> str:
-    """Return next key from pool."""
-    return next(_key_pool)
+    """Return the primary API key."""
+    return os.getenv("GEMINI_KEY_1", "")
 
 def clean_json_response(text: str) -> str:
     """

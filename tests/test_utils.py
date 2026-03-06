@@ -10,15 +10,13 @@ from utils import cache
 class TestUtils(unittest.TestCase):
     
     @patch.dict(os.environ, {"GEMINI_KEY_1": "key1", "GEMINI_KEY_2": "key2", "GEMINI_KEY_3": "key3"}, clear=True)
-    def test_get_api_key_cycles_through_keys(self):
+    def test_get_api_key_returns_primary(self):
         # We need to reload the module to pick up the mocked env vars
         import importlib
         import utils.schema
         importlib.reload(utils.schema)
         
         self.assertEqual(utils.schema.get_api_key(), "key1")
-        self.assertEqual(utils.schema.get_api_key(), "key2")
-        self.assertEqual(utils.schema.get_api_key(), "key3")
         self.assertEqual(utils.schema.get_api_key(), "key1")
         
     def test_clean_json_response_plain_json(self):

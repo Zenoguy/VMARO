@@ -1,5 +1,5 @@
 crewai==0.30.11
-google-generativeai
 requests
 streamlit
 python-dotenv
+google-genai==1.66.0
