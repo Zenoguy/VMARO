@@ -1,5 +1,6 @@
 import argparse
 import time
+import os
 from agents.literature_agent import run as run_literature
 from agents.tree_agent import run as run_tree
 from agents.trend_agent import run as run_trend
@@ -7,7 +8,7 @@ from agents.gap_agent import run as run_gap
 from agents.methodology_agent import run as run_methodology
 from agents.grant_agent import run as run_grant
 from agents.novelty_agent import run as run_novelty
-from utils.cache import save, load
+from utils.cache import save, load, CACHE_DIR
 from utils.quality_gate import evaluate_quality
 
 def delay():
@@ -16,6 +17,11 @@ def delay():
 
 def run_pipeline(topic: str) -> dict:
     print(f"Starting pipeline for topic: '{topic}'\n")
+    
+    # Write topic marker so Streamlit can detect topic changes
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    with open(os.path.join(CACHE_DIR, "_topic.txt"), "w") as f:
+        f.write(topic)
 
     # Agent 1
     papers = load("papers")

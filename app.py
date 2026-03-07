@@ -125,16 +125,26 @@ if run_btn:
         st.error("Please enter a research topic.")
         st.stop()
     
-    # Clear cache if topic changed
+    # Clear cache only if topic actually changed (not just missing _topic.txt)
     last_topic_file = os.path.join(CACHE_DIR, "_topic.txt")
-    if os.path.exists(CACHE_DIR):
-        prev_topic = open(last_topic_file).read() if os.path.exists(last_topic_file) else ""
+    if os.path.exists(CACHE_DIR) and os.path.exists(last_topic_file):
+        prev_topic = open(last_topic_file).read()
         if prev_topic != topic:
             import shutil
             shutil.rmtree(CACHE_DIR)
     os.makedirs(CACHE_DIR, exist_ok=True)
     with open(last_topic_file, "w") as f:
         f.write(topic)
+    
+    def is_fallback(data, required_keys):
+        """Check if result is a fallback/empty dict that shouldn't be cached."""
+        if not data or not isinstance(data, dict):
+            return True
+        for k in required_keys:
+            v = data.get(k)
+            if v is None or v == "" or v == [] or v == {}:
+                return True
+        return False
     
     # Lazy imports to avoid circular issues
     from agents.literature_agent import run as run_literature
@@ -161,11 +171,12 @@ if run_btn:
         update_progress(1, "Literature Mining")
         st.write("📚 **Searching Semantic Scholar** and summarizing papers...")
         papers = load("papers")
-        if papers:
+        if papers and not is_fallback(papers, ["papers"]):
             st.write("  ↳ _Loaded from cache_")
         else:
             papers = run_literature(topic)
-            save("papers", papers)
+            if not is_fallback(papers, ["papers"]):
+                save("papers", papers)
             time.sleep(2)
         results["papers"] = papers
         n_papers = len(papers.get("papers", []))
@@ -175,11 +186,12 @@ if run_btn:
         update_progress(2, "Thematic Clustering")
         st.write("🌳 **Clustering** papers into thematic groups...")
         tree = load("tree")
-        if tree:
+        if tree and not is_fallback(tree, ["themes"]):
             st.write("  ↳ _Loaded from cache_")
         else:
             tree = run_tree(papers)
-            save("tree", tree)
+            if not is_fallback(tree, ["themes"]):
+                save("tree", tree)
             time.sleep(2)
         results["tree"] = tree
         n_themes = len(tree.get("themes", []))
@@ -198,11 +210,12 @@ if run_btn:
         update_progress(4, "Trend Analysis")
         st.write("📈 **Analyzing trends** in the research landscape...")
         trends = load("trends")
-        if trends:
+        if trends and not is_fallback(trends, ["dominant_clusters", "emerging_trends"]):
             st.write("  ↳ _Loaded from cache_")
         else:
             trends = run_trend(tree)
-            save("trends", trends)
+            if not is_fallback(trends, ["dominant_clusters", "emerging_trends"]):
+                save("trends", trends)
             time.sleep(2)
         results["trends"] = trends
         st.write(f"  ↳ ✅ Found **{len(trends.get('dominant_clusters', []))} clusters**, **{len(trends.get('emerging_trends', []))} trends**")
@@ -211,11 +224,12 @@ if run_btn:
         update_progress(5, "Gap Identification")
         st.write("🔍 **Identifying research gaps** at theme intersections...")
         gaps = load("gaps")
-        if gaps:
+        if gaps and not is_fallback(gaps, ["identified_gaps"]):
             st.write("  ↳ _Loaded from cache_")
         else:
             gaps = run_gap(tree, trends)
-            save("gaps", gaps)
+            if not is_fallback(gaps, ["identified_gaps"]):
+                save("gaps", gaps)
             time.sleep(2)
         results["gaps"] = gaps
         st.write(f"  ↳ ✅ Found **{len(gaps.get('identified_gaps', []))} gaps**, selected: **{gaps.get('selected_gap', '?')}**")
@@ -233,7 +247,7 @@ if run_btn:
         update_progress(7, "Methodology Design")
         st.write("🧪 **Designing experimental methodology** for the selected gap...")
         methodology = load("methodology")
-        if methodology:
+        if methodology and not is_fallback(methodology, ["suggested_datasets", "experimental_design"]):
             st.write("  ↳ _Loaded from cache_")
         else:
             selected_gap_id = gaps.get("selected_gap", "")
@@ -242,7 +256,8 @@ if run_btn:
                 selected_gap_id
             )
             methodology = run_methodology(gap_desc, topic)
-            save("methodology", methodology)
+            if not is_fallback(methodology, ["suggested_datasets", "experimental_design"]):
+                save("methodology", methodology)
             time.sleep(2)
         results["methodology"] = methodology
         st.write(f"  ↳ ✅ Methodology ready — **{len(methodology.get('suggested_datasets', []))} datasets**, **{len(methodology.get('baseline_models', []))} baselines**")
@@ -251,7 +266,7 @@ if run_btn:
         update_progress(8, "Grant Writing")
         st.write("📝 **Drafting grant proposal**...")
         grant = load("grant")
-        if grant:
+        if grant and not is_fallback(grant, ["problem_statement", "proposed_methodology"]):
             st.write("  ↳ _Loaded from cache_")
         else:
             selected_gap_id = gaps.get("selected_gap", "")
@@ -260,7 +275,8 @@ if run_btn:
                 selected_gap_id
             )
             grant = run_grant(topic, gap_desc, methodology)
-            save("grant", grant)
+            if not is_fallback(grant, ["problem_statement", "proposed_methodology"]):
+                save("grant", grant)
             time.sleep(2)
         results["grant"] = grant
         st.write("  ↳ ✅ Grant proposal drafted")
@@ -269,11 +285,12 @@ if run_btn:
         update_progress(9, "Novelty Scoring")
         st.write("⭐ **Scoring novelty** against existing literature...")
         novelty = load("novelty")
-        if novelty:
+        if novelty and not is_fallback(novelty, ["closest_papers", "score_justification"]):
             st.write("  ↳ _Loaded from cache_")
         else:
             novelty = run_novelty(grant, tree)
-            save("novelty", novelty)
+            if not is_fallback(novelty, ["closest_papers", "score_justification"]):
+                save("novelty", novelty)
             time.sleep(2)
         results["novelty"] = novelty
         score = novelty.get("novelty_score", 0)
