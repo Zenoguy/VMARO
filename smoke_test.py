@@ -22,7 +22,7 @@ def get_headers():
     return {}
 
 
-def test_basic_search():
+def run_basic_search():
     print("\n[1/4] Testing basic search...")
     headers = get_headers()
     key_status = "with API key" if headers else "no API key (anonymous)"
@@ -62,7 +62,7 @@ def test_basic_search():
         sys.exit(1)
 
 
-def test_required_fields(papers):
+def run_required_fields(papers):
     print("\n[2/4] Testing required fields are present...")
     required = ["title", "year", "abstract"]
     issues = []
@@ -80,7 +80,7 @@ def test_required_fields(papers):
         print("  → Abstract filtering in literature_agent.py will handle this")
 
 
-def test_abstract_filtering(papers):
+def run_abstract_filtering(papers):
     print("\n[3/4] Testing abstract filter logic (year >= 2018, non-empty abstract)...")
     before = len(papers)
     filtered = [
@@ -96,7 +96,7 @@ def test_abstract_filtering(papers):
         print(f"  → Filter logic works correctly")
 
 
-def test_externalids_field():
+def run_externalids_field():
     print("\n[4/4] Testing externalIds + citationCount fields (needed for Schema 1)...")
     headers = get_headers()
     params = {
@@ -129,10 +129,10 @@ if __name__ == "__main__":
     print("VMARO — Semantic Scholar Smoke Test")
     print(SEPARATOR)
 
-    papers = test_basic_search()
-    test_required_fields(papers)
-    test_abstract_filtering(papers)
-    test_externalids_field()
+    papers = run_basic_search()
+    run_required_fields(papers)
+    run_abstract_filtering(papers)
+    run_externalids_field()
 
     print(f"\n{SEPARATOR}")
     print("✅ All Semantic Scholar checks passed — ready for Phase 3")

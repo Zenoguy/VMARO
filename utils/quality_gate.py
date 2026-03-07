@@ -1,7 +1,6 @@
 import os
 import json
-from google import genai
-from utils.schema import get_api_key, safe_parse
+from utils.schema import safe_parse, call_gemini_with_retry
 
 GATE_PROMPT = """
 You are a quality control agent. Evaluate this JSON output from a research pipeline agent.
@@ -19,18 +18,13 @@ Return ONLY valid JSON:
 def evaluate_quality(stage_name: str, output_json: dict) -> dict:
     """Send prompt, parse response, return decision."""
     try:
-        client = genai.Client(api_key=get_api_key())
-        
         prompt = GATE_PROMPT.format(
             stage=stage_name, 
             output=json.dumps(output_json, indent=2)
         )
         
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt
-        )
-        result = safe_parse(response.text)
+        response = call_gemini_with_retry(prompt)
+        result = safe_parse(response.text, required_keys=["decision", "confidence", "reason"])
         
     except Exception as e:
         print(f"[QualityGate:{stage_name}] Gate error — defaulting to PASS. Details: {str(e)}")
@@ -44,5 +38,10 @@ def evaluate_quality(stage_name: str, output_json: dict) -> dict:
     decision = result.get('decision', 'UNKNOWN')
     
     print(f"[QualityGate:{stage_name}] {decision} (confidence={result.get('confidence', 0.0)}): {result.get('reason', '')}")
+
+    # In demo mode, always pass through regardless of gate decision
+    if demo_mode and decision in ("REVISE", "FAIL"):
+        print(f"[QualityGate:{stage_name}] DEMO_MODE active — overriding {decision} to PASS")
+        result["decision"] = "PASS"
         
     return result

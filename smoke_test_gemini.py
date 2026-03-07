@@ -8,7 +8,7 @@ import sys
 from dotenv import load_dotenv
 load_dotenv()
 
-import google.generativeai as genai
+from google import genai
 from utils.schema import get_api_key, clean_json_response, safe_parse
 
 SEPARATOR = "-" * 50
@@ -35,9 +35,11 @@ def test_env_keys():
 def test_basic_completion():
     print("\n[3/4] Testing basic Gemini Flash completion...")
     try:
-        genai.configure(api_key=get_api_key())
-        model = genai.GenerativeModel("gemini-flash-latest")
-        response = model.generate_content("Reply with exactly one word: OK")
+        client = genai.Client(api_key=get_api_key())
+        response = client.models.generate_content(
+            model="gemini-flash-latest",
+            contents="Reply with exactly one word: OK"
+        )
         text = response.text.strip()
         if "OK" in text.upper():
             print(f"  ✅ Model responded: '{text}'")
@@ -51,14 +53,16 @@ def test_basic_completion():
 def test_json_output():
     print("\n[4/4] Testing structured JSON output + clean_json_response()...")
     try:
-        genai.configure(api_key=get_api_key())
-        model = genai.GenerativeModel("gemini-flash-latest")
+        client = genai.Client(api_key=get_api_key())
         prompt = """Return ONLY valid JSON — no markdown, no extra text:
 {
   "status": "ok",
   "message": "gemini flash json test passed"
 }"""
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="gemini-flash-latest",
+            contents=prompt
+        )
         raw = response.text
         parsed = safe_parse(raw)
 

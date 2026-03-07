@@ -1,0 +1,13 @@
+{
+  "dominant_clusters": [
+    "Privacy-preserving distributed model training (FedAvg, FedProx, SCAFFOLD)",
+    "Handling non-IID and heterogeneous medical data across clinical sites",
+    "Secure aggregation and differential privacy for patient-level protections"
+  ],
+  "emerging_trends": [
+    "Federated transfer learning for rare disease detection with limited labeled data",
+    "Personalized federated models adapting to site-specific patient demographics",
+    "Cross-silo federated learning integrating EHR, imaging, and genomic modalities",
+    "Asynchronous federated protocols for resource-constrained edge hospital devices"
+  ]
+}
