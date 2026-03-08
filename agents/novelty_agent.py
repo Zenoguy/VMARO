@@ -39,7 +39,7 @@ Available Themes: {json.dumps(theme_names_and_ids)}"""
                 break
             except Exception as e:
                 if attempt == 1:
-                    print(f"Agent6 Step 1 Gemini failed: {e}")
+                    print(f"Agent6 Step 1 Groq failed: {e}")
                     raise
                     
         if not step1_result:
@@ -80,7 +80,7 @@ Evaluate:
                 return safe_parse(response.text, required_keys=["closest_papers", "similarity_reasoning", "novelty_score", "score_justification"])
             except Exception as e:
                 if attempt == 1:
-                    print(f"Agent6 Step 2 Gemini failed: {e}")
+                    print(f"Agent6 Step 2 Groq failed: {e}")
                     raise
 
     except Exception as e:

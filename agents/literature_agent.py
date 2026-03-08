@@ -59,7 +59,7 @@ def run(topic: str) -> dict:
         if not filtered:
             return fallback
 
-        # Pass 2 - Summarisation via Gemini
+        # Pass 2 - Summarisation via Groq
         sys_inst = f"""You are a research assistant.
 Return ONLY valid JSON matching this schema:
 {{
@@ -88,7 +88,7 @@ Papers: {json.dumps(filtered)}"""
                 return safe_parse(response.text, required_keys=["topic", "papers"])
             except Exception as e:
                 if attempt == 1:
-                    print(f"Agent1 Gemini failed: {e}")
+                    print(f"Agent1 Groq failed: {e}")
                     raise
     
     except Exception as e:

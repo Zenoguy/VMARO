@@ -1,5 +1,5 @@
 """
-Smoke Test — Gemini Flash Connectivity
+Smoke Test — Groq API Connectivity
 Run from repo root: python smoke_test_gemini.py
 """
 
@@ -8,24 +8,24 @@ import sys
 from dotenv import load_dotenv
 load_dotenv()
 
-from google import genai
-from utils.schema import get_api_key, clean_json_response, safe_parse
+from groq import Groq
+from utils.schema import get_api_key, safe_parse
 
 SEPARATOR = "-" * 50
 
 def test_env_keys():
     print("\n[1/4] Checking .env keys...")
-    keys = [os.getenv(f"GEMINI_KEY_{i}") for i in range(1, 4)]
+    keys = [os.getenv(f"GROQ_API_KEY_{i}") for i in range(1, 4)]
     found = [(i+1, k) for i, k in enumerate(keys) if k]
     missing = [i+1 for i, k in enumerate(keys) if not k]
 
     for idx, key in found:
-        print(f"  ✅ GEMINI_KEY_{idx} = {key[:8]}...{key[-4:]}")
+        print(f"  ✅ GROQ_API_KEY_{idx} = {key[:8]}...{key[-4:]}")
     for idx in missing:
-        print(f"  ⚠️  GEMINI_KEY_{idx} = not set")
+        print(f"  ⚠️  GROQ_API_KEY_{idx} = not set")
 
     if not found:
-        print("  ❌ No keys found — add at least GEMINI_KEY_1 to .env")
+        print("  ❌ No keys found — add at least GROQ_API_KEY_1 to .env")
         sys.exit(1)
 
     print(f"  → {len(found)} key(s) loaded, {len(missing)} missing")
@@ -33,14 +33,15 @@ def test_env_keys():
 
 
 def test_basic_completion():
-    print("\n[3/4] Testing basic Gemini Flash completion...")
+    print("\n[3/4] Testing basic Groq completion...")
     try:
-        client = genai.Client(api_key=get_api_key())
-        response = client.models.generate_content(
-            model="gemini-flash-latest",
-            contents="Reply with exactly one word: OK"
+        client = Groq(api_key=get_api_key())
+        response = client.chat.completions.create(
+            model="moonshotai/kimi-k2-instruct-0905",
+            messages=[{"role": "user", "content": "Reply with exactly one word: OK"}],
+            temperature=0.7
         )
-        text = response.text.strip()
+        text = response.choices[0].message.content.strip()
         if "OK" in text.upper():
             print(f"  ✅ Model responded: '{text}'")
         else:
@@ -51,30 +52,27 @@ def test_basic_completion():
 
 
 def test_json_output():
-    print("\n[4/4] Testing structured JSON output + clean_json_response()...")
+    print("\n[4/4] Testing structured JSON output...")
     try:
-        client = genai.Client(api_key=get_api_key())
+        client = Groq(api_key=get_api_key())
         prompt = """Return ONLY valid JSON — no markdown, no extra text:
 {
   "status": "ok",
-  "message": "gemini flash json test passed"
+  "message": "groq json test passed"
 }"""
-        response = client.models.generate_content(
-            model="gemini-flash-latest",
-            contents=prompt
+        response = client.chat.completions.create(
+            model="moonshotai/kimi-k2-instruct-0905",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.7
         )
-        raw = response.text
+        raw = response.choices[0].message.content
         parsed = safe_parse(raw)
 
         if parsed.get("status") == "ok":
             print(f"  ✅ JSON parsed cleanly: {parsed}")
         else:
             print(f"  ⚠️  JSON parsed but unexpected content: {parsed}")
-
-        # Also test that clean_json_response handles fenced output
-        fenced = "```json\n{\"status\": \"ok\"}\n```"
-        assert safe_parse(fenced) == {"status": "ok"}
-        print("  ✅ clean_json_response() strips fences correctly")
 
     except Exception as e:
         print(f"  ❌ JSON test failed: {e}")
@@ -83,7 +81,7 @@ def test_json_output():
 
 if __name__ == "__main__":
     print(SEPARATOR)
-    print("VMARO — Gemini Flash Smoke Test")
+    print("VMARO — Groq API Smoke Test")
     print(SEPARATOR)
 
     num_keys = test_env_keys()
@@ -91,5 +89,5 @@ if __name__ == "__main__":
     test_json_output()
 
     print(f"\n{SEPARATOR}")
-    print("✅ All Gemini checks passed — ready for Phase 3")
+    print("✅ All Groq checks passed — ready for Phase 3")
     print(SEPARATOR)

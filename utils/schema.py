@@ -4,51 +4,60 @@ import re
 import time
 import itertools
 from dotenv import load_dotenv
+from groq import Groq
 
 load_dotenv(override=True)
 
-keys = [k for k in [os.getenv(f"GEMINI_KEY_{i}") for i in (1, 2, 3)] if k]
+keys = [k for k in [os.getenv(f"GROQ_API_KEY_{i}") for i in (1, 2, 3)] if k]
 key_pool = itertools.cycle(keys) if keys else None
 
 def get_api_key() -> str:
     """Return the next API key from the pool."""
     return next(key_pool) if key_pool else ""
 
-from google.genai import types
-
-from google import genai
-
 def call_gemini_with_retry(prompt, system_instruction=None, retries=6):
-    client = genai.Client(api_key=get_api_key())
+    """
+    Call Groq API with retry logic.
+    Renamed from call_gemini_with_retry for backward compatibility.
+    """
+    client = Groq(api_key=get_api_key())
     for attempt in range(retries):
         try:
-            config = types.GenerateContentConfig(
-                response_mime_type="application/json"
-            )
+            messages = []
             if system_instruction:
-                config.system_instruction = system_instruction
-                
-            return client.models.generate_content(
-                model="gemini-flash-latest",
-                contents=prompt,
-                config=config
+                messages.append({"role": "system", "content": system_instruction})
+            messages.append({"role": "user", "content": prompt})
+            
+            response = client.chat.completions.create(
+                model="moonshotai/kimi-k2-instruct-0905",
+                messages=messages,
+                response_format={"type": "json_object"},
+                temperature=0.7,
             )
+            
+            # Create a response object that mimics Gemini's structure
+            class GroqResponse:
+                def __init__(self, content):
+                    self.text = content
+                    
+            return GroqResponse(response.choices[0].message.content)
+            
         except Exception as e:
             err = str(e)
-            if "429" in err:
-                match = re.search(r'retryDelay.*?(\d+)s', err)
-                wait = int(match.group(1)) + 5 if match else 60
-                print(f"  429 — waiting {wait}s before retry {attempt+1}/{retries}")
+            if "429" in err or "rate_limit" in err.lower():
+                match = re.search(r'(\d+)', err)
+                wait = int(match.group(1)) if match else 60
+                print(f"  429 Rate Limit — waiting {wait}s before retry {attempt+1}/{retries}")
                 time.sleep(wait)
-            elif "503" in err and "UNAVAILABLE" in err:
+            elif "503" in err or "unavailable" in err.lower():
                 wait = 15
                 print(f"  503 Unavailable — waiting {wait}s before retry {attempt+1}/{retries}")
                 time.sleep(wait)
-            elif "400" in err and "API_KEY_INVALID" in err:
+            elif "401" in err or "invalid" in err.lower():
                 print(f"  Invalid API Key — swapping to next key in pool...")
-                client = genai.Client(api_key=get_api_key())
+                client = Groq(api_key=get_api_key())
             else:
-                raise  # non-429/400 errors fail immediately
+                raise  # non-429/401/503 errors fail immediately
     raise Exception("Max retries exceeded")
 
 def safe_parse(text: str, required_keys: list = None) -> dict:

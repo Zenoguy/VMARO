@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Python 3.10+
-- At least 1 Gemini API key ([get one free](https://aistudio.google.com/apikey))
+- At least 1 Groq API key ([get one free](https://console.groq.com/keys))
 
 ---
 
@@ -24,12 +24,12 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env` and paste your Gemini keys:
+Edit `.env` and paste your Groq keys:
 
 ```
-GEMINI_KEY_1=AIzaSy...your-first-key
-GEMINI_KEY_2=AIzaSy...your-second-key    # optional, reduces rate-limiting
-GEMINI_KEY_3=AIzaSy...your-third-key     # optional
+GROQ_API_KEY_1=gsk_...your-first-key
+GROQ_API_KEY_2=gsk_...your-second-key    # optional, reduces rate-limiting
+GROQ_API_KEY_3=gsk_...your-third-key     # optional
 SEMANTIC_SCHOLAR_KEY=                     # optional, works without it
 DEMO_MODE=true                            # recommended: gates won't block the pipeline
 MOCK_MODE=false                           # must be false for real API calls
@@ -115,7 +115,7 @@ The UI automatically clears the cache when you enter a new topic and click Run.
 
 ```bash
 # Unit tests (no API calls needed)
-PYTHONPATH=. MOCK_MODE=true DEMO_MODE=true GEMINI_KEY_1=mock pytest tests/test_utils.py -v
+PYTHONPATH=. MOCK_MODE=true DEMO_MODE=true GROQ_API_KEY_1=mock pytest tests/test_utils.py -v
 
 # Agent mock tests (literature_agent uses mock data; other agents need real keys)
 PYTHONPATH=. pytest tests/test_agents_mock.py -v
@@ -129,6 +129,6 @@ PYTHONPATH=. pytest tests/test_agents_mock.py -v
 |---------|-----|
 | `429 — waiting Xs before retry` | Normal rate-limiting. The pipeline retries automatically. Add more keys to `.env` to reduce waits. |
 | `Invalid API Key — swapping to next key` | One of your keys is wrong or expired. The pipeline auto-rotates to the next valid key. |
-| `503 Unavailable` | Gemini servers are busy. Auto-retries after 15s. |
+| `503 Unavailable` | Groq servers are busy. Auto-retries after 15s. |
 | `Max retries exceeded` | All retries exhausted. Wait a few minutes and re-run — cache-resume will pick up where it left off. |
-| Pipeline is slow with 1 key | Get 2-3 free keys from [AI Studio](https://aistudio.google.com/apikey) — each key has its own rate limit. |
+| Pipeline is slow with 1 key | Get 2-3 free keys from [Groq Console](https://console.groq.com/keys) — each key has its own rate limit. |

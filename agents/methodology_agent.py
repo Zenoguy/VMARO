@@ -35,7 +35,7 @@ Research Topic: {topic}"""
                 return safe_parse(response.text, required_keys=["suggested_datasets", "evaluation_metrics", "baseline_models", "experimental_design", "tools_and_frameworks"])
             except Exception as e:
                 if attempt == 1:
-                    print(f"Agent4 Gemini failed: {e}")
+                    print(f"Agent4 Groq failed: {e}")
                     raise
 
     except Exception as e:

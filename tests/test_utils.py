@@ -9,7 +9,7 @@ from utils import cache
 
 class TestUtils(unittest.TestCase):
     
-    @patch.dict(os.environ, {"GEMINI_KEY_1": "key1", "GEMINI_KEY_2": "key2", "GEMINI_KEY_3": "key3"}, clear=True)
+    @patch.dict(os.environ, {"GROQ_API_KEY_1": "key1", "GROQ_API_KEY_2": "key2", "GROQ_API_KEY_3": "key3"}, clear=True)
     def test_get_api_key_cycles_keys(self):
         # We need to reload the module to pick up the mocked env vars
         import importlib

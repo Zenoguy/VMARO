@@ -31,7 +31,7 @@ Identified Trends: {json.dumps(trends)}"""
                 return safe_parse(response.text, required_keys=["identified_gaps", "selected_gap"])
             except Exception as e:
                 if attempt == 1:
-                    print(f"Agent3 Gemini failed: {e}")
+                    print(f"Agent3 Groq failed: {e}")
                     raise
 
     except Exception as e:

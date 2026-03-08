@@ -2,8 +2,8 @@
 """
 VMARO Diagnostic Script
 -----------------------
-Tests the Semantic Scholar API and shows exactly what data flows into Gemini.
-No Gemini calls are made — this only tests the retrieval + filtering step.
+Tests the Semantic Scholar API and shows exactly what data flows into Groq.
+No Groq calls are made — this only tests the retrieval + filtering step.
 
 Usage:
     python diagnostic.py "Your Research Topic"
@@ -30,13 +30,13 @@ print("\n── STEP 0: Environment Check ──")
 mock_mode = os.getenv("MOCK_MODE", "").lower()
 demo_mode = os.getenv("DEMO_MODE", "").lower()
 ss_key = os.getenv("SEMANTIC_SCHOLAR_KEY", "")
-gemini_keys = [os.getenv(f"GEMINI_KEY_{i}", "") for i in (1, 2, 3)]
-gemini_keys_present = sum(1 for k in gemini_keys if k)
+groq_keys = [os.getenv(f"GROQ_API_KEY_{i}", "") for i in (1, 2, 3)]
+groq_keys_present = sum(1 for k in groq_keys if k)
 
 print(f"  MOCK_MODE     = '{mock_mode}' {'⚠️  MOCK ON — literature_agent will return mock_papers.json!' if mock_mode == 'true' else '✅'}")
 print(f"  DEMO_MODE     = '{demo_mode}'")
 print(f"  SS_KEY        = {'set' if ss_key else 'not set (using anonymous access)'}")
-print(f"  GEMINI_KEY_*  = {gemini_keys_present}/3 keys configured")
+print(f"  GROQ_API_KEY_*  = {groq_keys_present}/3 keys configured")
 
 if mock_mode == "true":
     print("\n  ⚠️  MOCK_MODE is true — literature_agent.py will NOT call Semantic Scholar.")
@@ -107,7 +107,7 @@ filtered = filtered[:12]
 print(f"  After top-12 cap: {len(filtered)} papers")
 
 # ── Step 3: Paper Details ───────────────────────────────────────────────
-print("\n── STEP 3: Papers That Would Be Sent to Gemini ──")
+print("\n── STEP 3: Papers That Would Be Sent to Groq ──")
 for i, p in enumerate(filtered):
     title = p.get("title", "?")
     year = p.get("year", "?")
@@ -122,8 +122,8 @@ for i, p in enumerate(filtered):
     print(f"      Year: {year} | Citations: {cites} | Abstract: {abstract_len} chars")
     print(f"      Authors: {author_str}")
 
-# ── Step 4: Gemini Prompt Preview ────────────────────────────────────────
-print("\n\n── STEP 4: What Gets Sent to Gemini ──")
+# ── Step 4: Groq Prompt Preview ────────────────────────────────────────
+print("\n\n── STEP 4: What Gets Sent to Groq ──")
 
 sys_inst = f"""You are a research assistant.
 Return ONLY valid JSON matching this schema:
@@ -156,13 +156,13 @@ total_chars = sum(len(p.get("abstract", "")) for p in filtered)
 print(f"  Papers to summarize: {len(filtered)}")
 print(f"  Total abstract chars: {total_chars:,}")
 print(f"  Avg abstract length: {total_chars // max(len(filtered), 1)} chars")
-print(f"  Payload to Gemini: {len(prompt):,} chars (~{len(prompt)//4} tokens)")
+print(f"  Payload to Groq: {len(prompt):,} chars (~{len(prompt)//4} tokens)")
 print()
 
 if len(filtered) == 0:
-    print("  ❌ NO PAPERS SURVIVED FILTERING — Gemini will get an empty list!")
+    print("  ❌ NO PAPERS SURVIVED FILTERING — Groq will get an empty list!")
     print("     Try a broader topic or check your network connection.")
 elif len(filtered) < 8:
     print(f"  ⚠️  Only {len(filtered)} papers — results may be thin. Consider a broader topic.")
 else:
-    print(f"  ✅ {len(filtered)} papers ready for Gemini summarization.")
+    print(f"  ✅ {len(filtered)} papers ready for Groq summarization.")

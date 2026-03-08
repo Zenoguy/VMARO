@@ -22,7 +22,7 @@ Return ONLY valid JSON matching this schema:
   "evaluation_plan": "how results will be measured",
   "expected_contribution": "impact and novelty",
   "timeline": "phased 6-month plan",
-  "budget_estimate": "cost breakdown with justification"
+  "budget_estimate": "cost breakdown with justification in rupees only "
 }}"""
 
         prompt = f"""Using the identified research gap and proposed
@@ -38,7 +38,7 @@ Methodology: {json.dumps(methodology)}"""
                 return safe_parse(response.text, required_keys=["problem_statement", "proposed_methodology", "evaluation_plan", "expected_contribution", "timeline", "budget_estimate"])
             except Exception as e:
                 if attempt == 1:
-                    print(f"Agent5 Gemini failed: {e}")
+                    print(f"Agent5 Groq failed: {e}")
                     raise
 
     except Exception as e:

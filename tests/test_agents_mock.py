@@ -19,7 +19,7 @@ class TestAgentsMock(unittest.TestCase):
         # Set environment variables for all tests in this suite
         os.environ["MOCK_MODE"] = "true"
         os.environ["DEMO_MODE"] = "true"
-        os.environ["GEMINI_KEY_1"] = "mock_key"
+        os.environ["GROQ_API_KEY_1"] = "mock_key"
         
         # Load all mocks
         with open("mock_data/mock_papers.json") as f:

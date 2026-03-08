@@ -7,30 +7,30 @@
 
 ## What It Does
 
-VMARO is a 6-agent sequential pipeline built with CrewAI and Gemini Flash. You give it a research topic; it retrieves real papers from Semantic Scholar, clusters them into a thematic tree, identifies research gaps, designs a methodology, writes a funding-ready grant proposal, and scores how novel that proposal is against the existing literature.
+VMARO is a 6-agent sequential pipeline built with CrewAI and Groq. You give it a research topic; it retrieves real papers from Semantic Scholar, clusters them into a thematic tree, identifies research gaps, designs a methodology, writes a funding-ready grant proposal, and scores how novel that proposal is against the existing literature.
 
 The "vectorless" part is the point: instead of cosine similarity over embeddings, the pipeline uses an LLM-native hierarchical tree to navigate the literature. More interpretable, zero infrastructure.
 
 ```
 [Research Topic]
       ↓
-  Agent 1 — Literature Mining        Semantic Scholar + Gemini Flash
+  Agent 1 — Literature Mining        Semantic Scholar + Groq
       ↓
-  Tree Index Builder                 Gemini Flash  [above spec]
-      ↓
-  [Quality Gate]                     PASS / REVISE / FAIL
-      ↓
-  Agent 2 — Trend Analysis           Gemini Flash
-      ↓
-  Agent 3 — Gap Identification       Gemini Flash
+  Tree Index Builder                 Groq  [above spec]
       ↓
   [Quality Gate]                     PASS / REVISE / FAIL
       ↓
-  Agent 4 — Methodology Design       Gemini Flash
+  Agent 2 — Trend Analysis           Groq
       ↓
-  Agent 5 — Grant Writing            Gemini Flash
+  Agent 3 — Gap Identification       Groq
       ↓
-  Agent 6 — Novelty Scoring          Gemini Flash  (2-step)
+  [Quality Gate]                     PASS / REVISE / FAIL
+      ↓
+  Agent 4 — Methodology Design       Groq
+      ↓
+  Agent 5 — Grant Writing            Groq
+      ↓
+  Agent 6 — Novelty Scoring          Groq  (2-step)
       ↓
   [Streamlit Dashboard]
 ```

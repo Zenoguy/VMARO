@@ -28,7 +28,7 @@ Tree: {json.dumps(tree)}"""
                 return safe_parse(response.text, required_keys=["dominant_clusters", "emerging_trends"])
             except Exception as e:
                 if attempt == 1:
-                    print(f"Agent2 Gemini failed: {e}")
+                    print(f"Agent2 Groq failed: {e}")
                     raise
 
     except Exception as e:

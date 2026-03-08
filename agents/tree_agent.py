@@ -37,7 +37,7 @@ Papers: {json.dumps(papers)}"""
                 return safe_parse(response.text, required_keys=["root", "themes", "emerging_directions"])
             except Exception as e:
                 if attempt == 1:
-                    print(f"TreeBuilder Gemini failed: {e}")
+                    print(f"TreeBuilder Groq failed: {e}")
                     raise
 
     except Exception as e:
