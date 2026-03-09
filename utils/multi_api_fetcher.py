@@ -141,27 +141,31 @@ class MultiAPIFetcher:
         
         # Deduplicate
         unique_papers = self._deduplicate(all_papers)
-        print(f"  🔍 Unique papers after deduplication: {len(unique_papers)}")
+        duplicates_removed = len(all_papers) - len(unique_papers)
+        print(f"  🔍 Unique papers after deduplication: {len(unique_papers)} (removed {duplicates_removed} duplicates)")
         
         # Sort by year (newest first) and citation count
         unique_papers.sort(key=lambda p: (p.get('year', 0), p.get('citationCount', 0)), reverse=True)
         
-        # Source distribution
+        # Limit to max_papers
+        final_papers = unique_papers[:max_papers]
+        
+        # Source distribution of final papers
         source_counts = {}
-        for p in unique_papers[:max_papers]:
+        for p in final_papers:
             src = p.get('source', 'Unknown')
             source_counts[src] = source_counts.get(src, 0) + 1
         
-        print(f"\n  📈 Source distribution (top {max_papers}):")
+        print(f"\n  📈 Final selection ({len(final_papers)} papers):")
         for source, count in sorted(source_counts.items(), key=lambda x: x[1], reverse=True):
             print(f"     • {source}: {count} papers")
         
         if len(unique_papers) < max_papers:
-            print(f"\n  ⚠️  Only {len(unique_papers)} unique papers found (requested {max_papers})")
+            print(f"\n  ⚠️  Only {len(unique_papers)} unique papers available (requested {max_papers})")
         
         print(f"  {'─' * 70}\n")
         
-        return unique_papers[:max_papers]
+        return final_papers
     
     def _fetch_semantic_scholar(self, topic: str, limit: int = 25) -> List[Dict]:
         """Fetch from Semantic Scholar API"""
@@ -169,7 +173,8 @@ class MultiAPIFetcher:
         if self.ss_key:
             headers["x-api-key"] = self.ss_key
         
-        url = "https://api.semanticscholar.org/graph/v1/paper/search/bulk"
+        # Use regular search endpoint (not bulk) for better limit control
+        url = "https://api.semanticscholar.org/graph/v1/paper/search"
         params = {
             "query": topic,
             "fields": "title,abstract,year,authors,externalIds,citationCount",
@@ -182,9 +187,13 @@ class MultiAPIFetcher:
         data = r.json()
         papers = data.get("data", [])
         
-        # Normalize format
+        # Normalize format and enforce limit
         normalized = []
         for p in papers:
+            # Stop if we've reached the limit
+            if len(normalized) >= limit:
+                break
+                
             if not p.get("abstract") or not p.get("abstract", "").strip():
                 continue
             
@@ -200,7 +209,7 @@ class MultiAPIFetcher:
                 "url": f"https://www.semanticscholar.org/paper/{p.get('paperId', '')}" if p.get('paperId') else ""
             })
         
-        return normalized
+        return normalized[:limit]  # Extra safety: enforce limit
     
     def _fetch_arxiv(self, topic: str, limit: int = 15) -> List[Dict]:
         """Fetch from arXiv API"""
