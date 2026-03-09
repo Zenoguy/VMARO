@@ -8,7 +8,7 @@ from datetime import datetime
 from utils.cache import save, load, CACHE_DIR
 
 # ── Page Config ──────────────────────────────────────────────────────────────
-st.set_page_config(page_title="VMARO Research Orchestrator", layout="wide", page_icon="🔬")
+st.set_page_config(page_title="VMARO Research Orchestrator", layout="wide")
 
 # ── Custom CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
@@ -250,20 +250,20 @@ st.markdown('<p class="subtitle">AI-powered research pipeline — from literatur
 
 # ── Pipeline Stages Definition ───────────────────────────────────────────────
 STAGES = [
-    ("📚", "Literature Mining",       "papers"),
-    ("🌳", "Thematic Clustering",     "tree"),
-    ("✅", "Quality Gate 1",          "qg1"),
-    ("📈", "Trend Analysis",          "trends"),
-    ("🔍", "Gap Identification",      "gaps"),
-    ("✅", "Quality Gate 2",          "qg2"),
-    ("🧪", "Methodology Design",     "methodology"),
-    ("📝", "Grant Writing",          "grant"),
-    ("⭐", "Novelty Scoring",        "novelty"),
+    ("", "Literature Mining",       "papers"),
+    ("", "Thematic Clustering",     "tree"),
+    ("", "Quality Gate 1",          "qg1"),
+    ("", "Trend Analysis",          "trends"),
+    ("", "Gap Identification",      "gaps"),
+    ("", "Quality Gate 2",          "qg2"),
+    ("", "Methodology Design",     "methodology"),
+    ("", "Grant Writing",          "grant"),
+    ("", "Novelty Scoring",        "novelty"),
 ]
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### ⚙️ Configuration")
+    st.markdown("### Configuration")
     topic = st.text_input(
         "Research Topic",
         value=st.session_state.pipeline_topic,
@@ -271,7 +271,7 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    run_btn = st.button("▶  Run Analysis", use_container_width=True, type="primary")
+    run_btn = st.button("Run Analysis", use_container_width=True, type="primary")
 
     st.markdown("---")
     st.markdown("##### Pipeline Stages")
@@ -281,16 +281,16 @@ with st.sidebar:
         status = st.session_state.stage_status.get(key, "pending")
         if status == "complete":
             badge_class = "stage-complete"
-            icon = "✅"
+            icon = "[✓]"
         elif status == "running":
             badge_class = "stage-running"
-            icon = "🔄"
+            icon = "[>]"
         elif status == "error":
             badge_class = "stage-error"
-            icon = "❌"
+            icon = "[X]"
         else:
             badge_class = "stage-pending"
-            icon = "⏳"
+            icon = "[ ]"
         st.markdown(
             f'<div class="stage-badge {badge_class}">{icon} {name}</div>',
             unsafe_allow_html=True
@@ -298,12 +298,12 @@ with st.sidebar:
 
     # Debug toggle
     st.markdown("---")
-    st.markdown("##### 🛠️ Developer")
+    st.markdown("##### Developer")
     show_debug = st.checkbox("Show Debug Console", value=True, key="show_debug")
 
     # Clear cache button
     st.markdown("---")
-    if st.button("🗑️ Clear Cache & Reset", use_container_width=True):
+    if st.button("Clear Cache & Reset", use_container_width=True):
         import shutil
         if os.path.exists(CACHE_DIR):
             shutil.rmtree(CACHE_DIR)
@@ -317,7 +317,7 @@ with st.sidebar:
         st.session_state.stage_timings = {}
         st.rerun()
 
-    if st.button("🧹 Clear Logs", use_container_width=True):
+    if st.button("Clear Logs", use_container_width=True):
         st.session_state.debug_logs = []
         st.session_state.stage_timings = {}
         st.rerun()
@@ -343,7 +343,7 @@ def set_stage(key, status):
 # ── Run Pipeline ─────────────────────────────────────────────────────────────
 if run_btn:
     if not topic.strip():
-        st.error("⚠️ Please enter a research topic.")
+        st.error("Please enter a research topic.")
         st.stop()
 
     # Clear cache if topic changed
@@ -393,7 +393,7 @@ if run_btn:
         # ── Stage 1: Literature ──
         set_stage("papers", "running")
         update_progress(1, "Literature Mining")
-        st.write("📚 **Searching Semantic Scholar** and summarizing papers...")
+        st.write("**Searching Semantic Scholar** and summarizing papers...")
         _t0 = time.time()
         try:
             papers = load("papers")
@@ -406,10 +406,10 @@ if run_btn:
                 time.sleep(1)
             st.session_state.papers = papers
             n_papers = len(papers.get("papers", []))
-            st.write(f"  ↳ ✅ Retrieved **{n_papers} papers**")
+            st.write(f"  ↳ Retrieved **{n_papers} papers**")
             set_stage("papers", "complete")
         except Exception as e:
-            st.write(f"  ↳ ❌ Error: {e}")
+            st.write(f"  ↳ Error: {e}")
             st.session_state.pipeline_errors["papers"] = str(e)
             set_stage("papers", "error")
         st.session_state.stage_timings["papers"] = round(time.time() - _t0, 1)
@@ -417,7 +417,7 @@ if run_btn:
         # ── Stage 2: Tree ──
         set_stage("tree", "running")
         update_progress(2, "Thematic Clustering")
-        st.write("🌳 **Clustering** papers into thematic groups...")
+        st.write("**Clustering** papers into thematic groups...")
         _t0 = time.time()
         try:
             tree = load("tree")
@@ -431,10 +431,10 @@ if run_btn:
                 time.sleep(1)
             st.session_state.tree = tree
             n_themes = len(tree.get("themes", []))
-            st.write(f"  ↳ ✅ Built **{n_themes} themes**")
+            st.write(f"  ↳ Built **{n_themes} themes**")
             set_stage("tree", "complete")
         except Exception as e:
-            st.write(f"  ↳ ❌ Error: {e}")
+            st.write(f"  ↳ Error: {e}")
             st.session_state.pipeline_errors["tree"] = str(e)
             set_stage("tree", "error")
         st.session_state.stage_timings["tree"] = round(time.time() - _t0, 1)
@@ -442,7 +442,7 @@ if run_btn:
         # ── Stage 3: Quality Gate 1 ──
         set_stage("qg1", "running")
         update_progress(3, "Quality Gate 1")
-        st.write("✅ **Quality Gate 1** — evaluating literature tree...")
+        st.write("**Quality Gate 1** — evaluating literature tree...")
         _t0 = time.time()
         try:
             tree_data = st.session_state.tree or {}
@@ -453,7 +453,7 @@ if run_btn:
             st.write(f"  ↳ Gate: **{qg1_decision}** (confidence {qg1_conf})")
             set_stage("qg1", "complete")
         except Exception as e:
-            st.write(f"  ↳ ❌ Error: {e}")
+            st.write(f"  ↳ Error: {e}")
             st.session_state.pipeline_errors["qg1"] = str(e)
             set_stage("qg1", "error")
         st.session_state.stage_timings["qg1"] = round(time.time() - _t0, 1)
@@ -461,7 +461,7 @@ if run_btn:
         # ── Stage 4: Trends ──
         set_stage("trends", "running")
         update_progress(4, "Trend Analysis")
-        st.write("📈 **Analyzing trends** in the research landscape...")
+        st.write("**Analyzing trends** in the research landscape...")
         _t0 = time.time()
         try:
             trends = load("trends")
@@ -474,10 +474,10 @@ if run_btn:
                     save("trends", trends)
                 time.sleep(1)
             st.session_state.trends = trends
-            st.write(f"  ↳ ✅ Found **{len(trends.get('dominant_clusters', []))} clusters**, **{len(trends.get('emerging_trends', []))} trends**")
+            st.write(f"  ↳ Found **{len(trends.get('dominant_clusters', []))} clusters**, **{len(trends.get('emerging_trends', []))} trends**")
             set_stage("trends", "complete")
         except Exception as e:
-            st.write(f"  ↳ ❌ Error: {e}")
+            st.write(f"  ↳ Error: {e}")
             st.session_state.pipeline_errors["trends"] = str(e)
             set_stage("trends", "error")
         st.session_state.stage_timings["trends"] = round(time.time() - _t0, 1)
@@ -485,7 +485,7 @@ if run_btn:
         # ── Stage 5: Gaps ──
         set_stage("gaps", "running")
         update_progress(5, "Gap Identification")
-        st.write("🔍 **Identifying research gaps** at theme intersections...")
+        st.write("**Identifying research gaps** at theme intersections...")
         _t0 = time.time()
         try:
             gaps = load("gaps")
@@ -499,10 +499,10 @@ if run_btn:
                     save("gaps", gaps)
                 time.sleep(1)
             st.session_state.gaps = gaps
-            st.write(f"  ↳ ✅ Found **{len(gaps.get('identified_gaps', []))} gaps**, selected: **{gaps.get('selected_gap', '?')}**")
+            st.write(f"  ↳ Found **{len(gaps.get('identified_gaps', []))} gaps**, selected: **{gaps.get('selected_gap', '?')}**")
             set_stage("gaps", "complete")
         except Exception as e:
-            st.write(f"  ↳ ❌ Error: {e}")
+            st.write(f"  ↳ Error: {e}")
             st.session_state.pipeline_errors["gaps"] = str(e)
             set_stage("gaps", "error")
         st.session_state.stage_timings["gaps"] = round(time.time() - _t0, 1)
@@ -510,7 +510,7 @@ if run_btn:
         # ── Stage 6: Quality Gate 2 ──
         set_stage("qg2", "running")
         update_progress(6, "Quality Gate 2")
-        st.write("✅ **Quality Gate 2** — evaluating gap analysis...")
+        st.write("**Quality Gate 2** — evaluating gap analysis...")
         _t0 = time.time()
         try:
             gaps_data = st.session_state.gaps or {}
@@ -521,7 +521,7 @@ if run_btn:
             st.write(f"  ↳ Gate: **{qg2_decision}** (confidence {qg2_conf})")
             set_stage("qg2", "complete")
         except Exception as e:
-            st.write(f"  ↳ ❌ Error: {e}")
+            st.write(f"  ↳ Error: {e}")
             st.session_state.pipeline_errors["qg2"] = str(e)
             set_stage("qg2", "error")
         st.session_state.stage_timings["qg2"] = round(time.time() - _t0, 1)
@@ -529,7 +529,7 @@ if run_btn:
         # ── Stage 7: Methodology ──
         set_stage("methodology", "running")
         update_progress(7, "Methodology Design")
-        st.write("🧪 **Designing experimental methodology** for the selected gap...")
+        st.write("**Designing experimental methodology** for the selected gap...")
         _t0 = time.time()
         try:
             methodology = load("methodology")
@@ -547,10 +547,10 @@ if run_btn:
                     save("methodology", methodology)
                 time.sleep(1)
             st.session_state.methodology = methodology
-            st.write(f"  ↳ ✅ Methodology ready — **{len(methodology.get('suggested_datasets', []))} datasets**, **{len(methodology.get('baseline_models', []))} baselines**")
+            st.write(f"  ↳ Methodology ready — **{len(methodology.get('suggested_datasets', []))} datasets**, **{len(methodology.get('baseline_models', []))} baselines**")
             set_stage("methodology", "complete")
         except Exception as e:
-            st.write(f"  ↳ ❌ Error: {e}")
+            st.write(f"  ↳ Error: {e}")
             st.session_state.pipeline_errors["methodology"] = str(e)
             set_stage("methodology", "error")
         st.session_state.stage_timings["methodology"] = round(time.time() - _t0, 1)
@@ -558,7 +558,7 @@ if run_btn:
         # ── Stage 8: Grant ──
         set_stage("grant", "running")
         update_progress(8, "Grant Writing")
-        st.write("📝 **Drafting grant proposal**...")
+        st.write("**Drafting grant proposal**...")
         _t0 = time.time()
         try:
             grant = load("grant")
@@ -580,7 +580,7 @@ if run_btn:
             st.write("  ↳ Grant proposal drafted")
             set_stage("grant", "complete")
         except Exception as e:
-            st.write(f"  ↳ ❌ Error: {e}")
+            st.write(f"  ↳ Error: {e}")
             st.session_state.pipeline_errors["grant"] = str(e)
             set_stage("grant", "error")
         st.session_state.stage_timings["grant"] = round(time.time() - _t0, 1)
@@ -588,7 +588,7 @@ if run_btn:
         # ── Stage 9: Novelty ──
         set_stage("novelty", "running")
         update_progress(9, "Novelty Scoring")
-        st.write("⭐ **Scoring novelty** against existing literature...")
+        st.write("**Scoring novelty** against existing literature...")
         _t0 = time.time()
         try:
             novelty = load("novelty")
@@ -603,10 +603,10 @@ if run_btn:
                 time.sleep(1)
             st.session_state.novelty = novelty
             score = novelty.get("novelty_score", 0)
-            st.write(f"  ↳ ✅ Novelty score: **{score}/100**")
+            st.write(f"  ↳ Novelty score: **{score}/100**")
             set_stage("novelty", "complete")
         except Exception as e:
-            st.write(f"  ↳ ❌ Error: {e}")
+            st.write(f"  ↳ Error: {e}")
             st.session_state.pipeline_errors["novelty"] = str(e)
             set_stage("novelty", "error")
         st.session_state.stage_timings["novelty"] = round(time.time() - _t0, 1)
@@ -614,8 +614,8 @@ if run_btn:
     # Restore stdout
     sys.stdout = _original_stdout
 
-    progress_bar.progress(100, text="✅ Pipeline complete!")
-    status_container.update(label="✅ **Pipeline Complete**", state="complete", expanded=False)
+    progress_bar.progress(100, text="Pipeline complete!")
+    status_container.update(label="**Pipeline Complete**", state="complete", expanded=False)
     st.session_state.pipeline_run = True
     st.balloons()
 
@@ -634,17 +634,17 @@ if has_results:
 
     # Show errors if any
     if st.session_state.pipeline_errors:
-        with st.expander("⚠️ Pipeline Errors", expanded=False):
+        with st.expander("Pipeline Errors", expanded=False):
             for stage, err in st.session_state.pipeline_errors.items():
                 st.error(f"**{stage}**: {err}")
 
     tabs = st.tabs([
-        "📚 Literature",
-        "🌳 Tree Index",
-        "📈 Trends & Gaps",
-        "🧪 Methodology",
-        "📝 Grant Proposal",
-        "⭐ Novelty Score"
+        "Literature",
+        "Tree Index",
+        "Trends & Gaps",
+        "Methodology",
+        "Grant Proposal",
+        "Novelty Score"
     ])
 
     display_topic = st.session_state.pipeline_topic or "Unknown"
@@ -653,7 +653,7 @@ if has_results:
     with tabs[0]:
         papers_data = st.session_state.papers or {}
         if papers_data:
-            st.markdown("## 📚 Retrieved Literature")
+            st.markdown("## Retrieved Literature")
             paper_list = papers_data.get("papers", [])
             st.caption(f"Topic: **{papers_data.get('topic', display_topic)}** · {len(paper_list)} papers")
 
@@ -661,10 +661,10 @@ if has_results:
                 st.markdown(f"""
 <div class="paper-card">
     <h4>{p.get('title', 'Unknown')}</h4>
-    <span class="year-badge">📅 {p.get('year', 'N/A')}</span>
+    <span class="year-badge">{p.get('year', 'N/A')}</span>
     <p style="margin-top:10px; color:#ccc;">{p.get('summary', '')}</p>
     <p style="color:#a78bfa;"><strong>Contribution:</strong> {p.get('contribution', '')}</p>
-    <a href="{p.get('source', '#')}" style="color:#667eea;">🔗 Source</a>
+    <a href="{p.get('source', '#')}" style="color:#667eea;">Source</a>
 </div>
                 """, unsafe_allow_html=True)
         else:
@@ -674,18 +674,18 @@ if has_results:
     with tabs[1]:
         tree_data = st.session_state.tree or {}
         if tree_data:
-            st.markdown("## 🌳 Thematic Tree Index")
+            st.markdown("## Thematic Tree Index")
             st.markdown(f"**Root:** {tree_data.get('root', 'Unknown')}")
 
             for theme in tree_data.get("themes", []):
-                with st.expander(f"🏷️ {theme.get('theme_id')}: {theme.get('theme_name')}", expanded=True):
+                with st.expander(f"{theme.get('theme_id')}: {theme.get('theme_name')}", expanded=True):
                     for idx, p in enumerate(theme.get('papers', [])):
                         title = p.get('title', p) if isinstance(p, dict) else p
                         year = p.get('year', '') if isinstance(p, dict) else ''
                         year_str = f" ({year})" if year else ""
                         st.markdown(f"&nbsp;&nbsp;&nbsp;{idx+1}. {title}{year_str}")
 
-            st.markdown("### 🚀 Emerging Directions")
+            st.markdown("### Emerging Directions")
             for d in tree_data.get("emerging_directions", []):
                 st.markdown(f"- {d}")
         else:
@@ -697,7 +697,7 @@ if has_results:
         gaps_data = st.session_state.gaps or {}
 
         if trends_data or gaps_data:
-            st.markdown("## 📈 Trends & Gaps")
+            st.markdown("## Trends & Gaps")
             col1, col2 = st.columns(2)
 
             with col1:
@@ -707,7 +707,7 @@ if has_results:
 
                 st.markdown("### Emerging Trends")
                 for t in trends_data.get("emerging_trends", []):
-                    st.info(f"📈 {t}")
+                    st.info(f"{t}")
 
             with col2:
                 st.markdown("### Identified Gaps")
@@ -721,7 +721,7 @@ if has_results:
                     """, unsafe_allow_html=True)
 
                 selected = gaps_data.get('selected_gap', '?')
-                st.success(f"🎯 **Selected Gap:** {selected}")
+                st.success(f"**Selected Gap:** {selected}")
         else:
             st.info("No trends/gaps data available. Run the pipeline to generate results.")
 
@@ -729,26 +729,26 @@ if has_results:
     with tabs[3]:
         meth = st.session_state.methodology or {}
         if meth:
-            st.markdown("## 🧪 Experimental Methodology")
+            st.markdown("## Experimental Methodology")
 
             c1, c2, c3 = st.columns(3)
             with c1:
-                st.markdown("### 📊 Datasets")
+                st.markdown("### Datasets")
                 for d in meth.get("suggested_datasets", []):
                     st.markdown(f"- {d}")
             with c2:
-                st.markdown("### 📏 Metrics")
+                st.markdown("### Metrics")
                 for m in meth.get("evaluation_metrics", []):
                     st.markdown(f"- {m}")
             with c3:
-                st.markdown("### 🏗️ Baselines")
+                st.markdown("### Baselines")
                 for b in meth.get("baseline_models", []):
                     st.markdown(f"- {b}")
 
-            st.markdown("### 🔬 Experimental Design")
+            st.markdown("### Experimental Design")
             st.markdown(meth.get("experimental_design", "_No design generated._"))
 
-            st.markdown("### 🛠️ Tools & Frameworks")
+            st.markdown("### Tools & Frameworks")
             tools = meth.get("tools_and_frameworks", [])
             if tools:
                 st.markdown(" · ".join([f"`{t}`" for t in tools]))
@@ -759,7 +759,7 @@ if has_results:
     with tabs[4]:
         grant_data = st.session_state.grant or {}
         if grant_data:
-            st.markdown("## 📝 Grant Proposal")
+            st.markdown("## Grant Proposal")
 
             sections = [
                 ("Problem Statement", "problem_statement"),
@@ -778,7 +778,7 @@ if has_results:
             col_dl1, col_dl2 = st.columns([1, 3])
             with col_dl1:
                 st.download_button(
-                    label="⬇️ Download JSON",
+                    label="Download JSON",
                     data=json.dumps(grant_data, indent=2),
                     file_name=f"{display_topic.replace(' ', '_').lower()}_grant.json",
                     mime="application/json",
@@ -791,15 +791,15 @@ if has_results:
     with tabs[5]:
         nov = st.session_state.novelty or {}
         if nov:
-            st.markdown("## ⭐ Novelty Assessment")
+            st.markdown("## Novelty Assessment")
             score = nov.get("novelty_score", 0)
 
             if score < 40:
-                color, emoji, label = "#ef4444", "🔴", "Low Novelty"
+                color, emoji, label = "#ef4444", "[LOW]", "Low Novelty"
             elif score < 70:
-                color, emoji, label = "#eab308", "🟡", "Moderate Novelty"
+                color, emoji, label = "#eab308", "[MOD]", "Moderate Novelty"
             else:
-                color, emoji, label = "#22c55e", "🟢", "High Novelty"
+                color, emoji, label = "#22c55e", "[HIGH]", "High Novelty"
 
             col_s1, col_s2 = st.columns([1, 2])
             with col_s1:
@@ -817,7 +817,7 @@ if has_results:
             closest = nov.get("closest_papers", [])
             if closest:
                 for p in closest:
-                    st.markdown(f"- 📄 {p}")
+                    st.markdown(f"- {p}")
             else:
                 st.caption("No closest papers identified.")
         else:
@@ -829,23 +829,23 @@ elif not st.session_state.pipeline_run:
     col_w1, col_w2, col_w3 = st.columns(3)
     with col_w1:
         st.markdown("""
-        ### 📚 Literature Mining
+        ### Literature Mining
         Automatically search and summarize research papers from Semantic Scholar using AI.
         """)
     with col_w2:
         st.markdown("""
-        ### 🔍 Gap Analysis
+        ### Gap Analysis
         Identify underexplored intersections and select the most promising research gaps.
         """)
     with col_w3:
         st.markdown("""
-        ### 📝 Grant Writing
+        ### Grant Writing
         Generate a funding-ready research proposal with methodology and novelty scoring.
         """)
     st.markdown("---")
     st.markdown(
         '<p style="text-align:center; color:#888; font-size:1.1rem;">'
-        '👈 Enter a research topic in the sidebar and click <b>Run Analysis</b> to get started.'
+        'Enter a research topic in the sidebar and click <b>Run Analysis</b> to get started.'
         '</p>',
         unsafe_allow_html=True
     )
@@ -855,23 +855,23 @@ elif not st.session_state.pipeline_run:
 # ══════════════════════════════════════════════════════════════════════════════
 if st.session_state.get("show_debug", False):
     st.markdown("---")
-    st.markdown("### 🐛 Debug Console")
+    st.markdown("### Debug Console")
 
     # Stage timing summary
     timings = st.session_state.stage_timings
     if timings:
-        st.markdown("#### ⏱️ Stage Timings")
+        st.markdown("#### Stage Timings")
         timing_cols = st.columns(min(len(timings), 5))
         stage_labels = {
-            "papers": "📚 Literature",
-            "tree": "🌳 Tree",
-            "qg1": "✅ QG1",
-            "trends": "📈 Trends",
-            "gaps": "🔍 Gaps",
-            "qg2": "✅ QG2",
-            "methodology": "🧪 Methodology",
-            "grant": "📝 Grant",
-            "novelty": "⭐ Novelty",
+            "papers": "Literature",
+            "tree": "Tree",
+            "qg1": "QG1",
+            "trends": "Trends",
+            "gaps": "Gaps",
+            "qg2": "QG2",
+            "methodology": "Methodology",
+            "grant": "Grant",
+            "novelty": "Novelty",
         }
         for i, (stage_key, elapsed) in enumerate(timings.items()):
             col_idx = i % min(len(timings), 5)
@@ -889,7 +889,7 @@ if st.session_state.get("show_debug", False):
         st.caption(f"Total pipeline time: **{total_time:.1f}s**")
 
     # Log output
-    st.markdown("#### 📋 Pipeline Logs")
+    st.markdown("#### Pipeline Logs")
     n_429 = sum(1 for _, level, _ in st.session_state.debug_logs if level == "rate")
     n_errors = sum(1 for _, level, _ in st.session_state.debug_logs if level == "error")
     n_warns = sum(1 for _, level, _ in st.session_state.debug_logs if level == "warn")
@@ -897,7 +897,7 @@ if st.session_state.get("show_debug", False):
 
     summary_parts = [f"{total_logs} entries"]
     if n_429:
-        summary_parts.append(f"🔴 {n_429} rate-limits (429)")
+        summary_parts.append(f"[ERROR] {n_429} rate-limits (429)")
     if n_errors:
         summary_parts.append(f"❌ {n_errors} errors")
     if n_warns:
