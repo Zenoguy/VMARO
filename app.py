@@ -393,7 +393,7 @@ if run_btn:
         # ── Stage 1: Literature ──
         set_stage("papers", "running")
         update_progress(1, "Literature Mining")
-        st.write("**Searching Semantic Scholar** and summarizing papers...")
+        st.write("**Fetching papers sequentially**: Semantic Scholar → arXiv → CrossRef → OpenAlex...")
         _t0 = time.time()
         try:
             papers = load("papers")
@@ -830,7 +830,7 @@ elif not st.session_state.pipeline_run:
     with col_w1:
         st.markdown("""
         ### Literature Mining
-        Automatically search and summarize research papers from Semantic Scholar using AI.
+        Fetch from **multiple academic databases** (Semantic Scholar, arXiv, CrossRef, OpenAlex, PubMed) with automatic deduplication.
         """)
     with col_w2:
         st.markdown("""
