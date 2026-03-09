@@ -28,7 +28,7 @@ def load(stage: str) -> dict | None:
                     current_topic = tf.read().strip()
                 
                 # If topics don't match, invalidate cache
-                if cached_topic != current_topic:
+                if cached_topic.strip() != current_topic.strip():
                     print(f"  ⚠️  Cache invalidated: topic changed from '{cached_topic}' to '{current_topic}'")
                     return None
         
