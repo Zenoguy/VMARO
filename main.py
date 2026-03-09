@@ -38,8 +38,11 @@ def run_pipeline(topic: str) -> dict:
         delay()
 
     # Quality Gate 1
-    evaluate_quality("post_literature", tree)
-    delay()
+    qg1 = load("qg1")
+    if not qg1:
+        qg1 = evaluate_quality("post_literature", tree)
+        save("qg1", qg1)
+        delay()
 
     # Agent 2
     trends = load("trends")
@@ -56,8 +59,11 @@ def run_pipeline(topic: str) -> dict:
         delay()
 
     # Quality Gate 2
-    evaluate_quality("post_gap", gaps)
-    delay()
+    qg2 = load("qg2")
+    if not qg2:
+        qg2 = evaluate_quality("post_gap", gaps)
+        save("qg2", qg2)
+        delay()
 
     # Agent 4
     methodology = load("methodology")

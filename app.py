@@ -168,7 +168,7 @@ st.markdown("""
 
 # ── Session State Init ───────────────────────────────────────────────────────
 # All pipeline results are stored in session_state so they survive reruns.
-RESULT_KEYS = ["papers", "tree", "trends", "gaps", "methodology", "grant", "novelty"]
+RESULT_KEYS = ["papers", "tree", "qg1", "trends", "gaps", "qg2", "methodology", "grant", "novelty"]
 
 if "pipeline_run" not in st.session_state:
     st.session_state.pipeline_run = False
@@ -445,9 +445,16 @@ if run_btn:
         st.write("**Quality Gate 1** — evaluating literature tree...")
         _t0 = time.time()
         try:
-            tree_data = st.session_state.tree or {}
-            qg1 = evaluate_quality("post_literature", tree_data)
-            time.sleep(1)
+            qg1 = load("qg1")
+            if qg1 and not is_fallback(qg1, ["decision", "confidence"]):
+                st.write("  ↳ _Loaded from cache_")
+            else:
+                tree_data = st.session_state.tree or {}
+                qg1 = evaluate_quality("post_literature", tree_data)
+                if not is_fallback(qg1, ["decision", "confidence"]):
+                    save("qg1", qg1)
+                time.sleep(1)
+            st.session_state.qg1 = qg1
             qg1_decision = qg1.get("decision", "?")
             qg1_conf = qg1.get("confidence", 0)
             st.write(f"  ↳ Gate: **{qg1_decision}** (confidence {qg1_conf})")
@@ -513,9 +520,16 @@ if run_btn:
         st.write("**Quality Gate 2** — evaluating gap analysis...")
         _t0 = time.time()
         try:
-            gaps_data = st.session_state.gaps or {}
-            qg2 = evaluate_quality("post_gap", gaps_data)
-            time.sleep(1)
+            qg2 = load("qg2")
+            if qg2 and not is_fallback(qg2, ["decision", "confidence"]):
+                st.write("  ↳ _Loaded from cache_")
+            else:
+                gaps_data = st.session_state.gaps or {}
+                qg2 = evaluate_quality("post_gap", gaps_data)
+                if not is_fallback(qg2, ["decision", "confidence"]):
+                    save("qg2", qg2)
+                time.sleep(1)
+            st.session_state.qg2 = qg2
             qg2_decision = qg2.get("decision", "?")
             qg2_conf = qg2.get("confidence", 0)
             st.write(f"  ↳ Gate: **{qg2_decision}** (confidence {qg2_conf})")
@@ -664,7 +678,7 @@ if has_results:
     <span class="year-badge">{p.get('year', 'N/A')}</span>
     <p style="margin-top:10px; color:#ccc;">{p.get('summary', '')}</p>
     <p style="color:#a78bfa;"><strong>Contribution:</strong> {p.get('contribution', '')}</p>
-    <a href="{p.get('source', '#')}" style="color:#667eea;">Source</a>
+    <a href="{p.get('url', '#')}" style="color:#667eea;">Source</a>
 </div>
                 """, unsafe_allow_html=True)
         else:

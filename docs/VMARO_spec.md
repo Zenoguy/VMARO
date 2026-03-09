@@ -16,15 +16,15 @@ A 6-agent sequential pipeline that takes a research topic and outputs a funded-r
 
 ```
 [User Topic]
-    → Agent 1: Literature Mining    (Semantic Scholar + Gemini Flash)
-    → Tree Builder                  (Gemini Flash) [architectural layer, above spec]
+    → Agent 1: Literature Mining    (Multi-API Fetcher + Groq)
+    → Tree Builder                  (Groq) [architectural layer, above spec]
     → [Quality Gate 1]
-    → Agent 2: Trend Analysis       (Gemini Flash)
-    → Agent 3: Gap Identification   (Gemini Flash)
+    → Agent 2: Trend Analysis       (Groq)
+    → Agent 3: Gap Identification   (Groq)
     → [Quality Gate 2]
-    → Agent 4: Methodology Design   (Gemini Flash)
-    → Agent 5: Grant Writing        (Gemini Flash)
-    → Agent 6: Novelty Scoring      (Gemini Flash, 2-step)
+    → Agent 4: Methodology Design   (Groq)
+    → Agent 5: Grant Writing        (Groq)
+    → Agent 6: Novelty Scoring      (Groq, 2-step)
     → [Streamlit Dashboard]
 ```
 
@@ -43,6 +43,7 @@ vmaro/
 │   ├── grant_agent.py          # Agent 5
 │   └── novelty_agent.py        # Agent 6
 ├── utils/
+│   ├── multi_api_fetcher.py    # Fetches from Semantic Scholar, arXiv, PubMed, etc.
 │   ├── schema.py               # JSON validators + clean_json_response() + API key rotation
 │   ├── cache.py                # Checkpoint cache (writes to cache/ after each agent)
 │   └── quality_gate.py         # LLM quality gate (PASS / REVISE / FAIL)
@@ -68,9 +69,9 @@ vmaro/
 
 ### `.env.example`
 ```
-GEMINI_KEY_1=your_key_here
-GEMINI_KEY_2=your_key_here
-GEMINI_KEY_3=your_key_here
+GROQ_API_KEY_1=your_key_here
+GROQ_API_KEY_2=your_key_here
+GROQ_API_KEY_3=your_key_here
 ```
 
 ### `requirements.txt`
@@ -82,14 +83,13 @@ streamlit
 python-dotenv
 ```
 
-### Free Tier Limits (Gemini Flash per key)
+### Free Tier Limits (Groq per key)
 | Limit | Value |
 |-------|-------|
-| Requests/day | 1,500 |
-| Requests/minute | 15 |
-| Context window | 1M tokens |
+| Requests/day | 14,400 |
+| Requests/minute | 30 |
 
-With 3 keys: **4,500 req/day, 45 RPM** — more than enough for ~10 LLM calls per run.
+With 3 keys: **43,200 req/day, 90 RPM** — more than enough for ~10 LLM calls per run.
 
 ---
 
@@ -107,7 +107,8 @@ All inter-agent communication is plain JSON passed in memory (or cached to `cach
       "year": 2024,
       "summary": "2-3 sentence summary",
       "contribution": "main contribution",
-      "source": "https://doi.org/..."
+      "api_source": "Semantic Scholar",
+      "url": "https://doi.org/..."
     }
   ]
 }
@@ -197,14 +198,14 @@ import itertools, os, json, re
 from dotenv import load_dotenv
 load_dotenv()
 
-_keys = [k for k in [os.getenv(f"GEMINI_KEY_{i}") for i in range(1, 4)] if k]
+_keys = [k for k in [os.getenv(f"GROQ_API_KEY_{i}") for i in range(1, 4)] if k]
 _key_pool = itertools.cycle(_keys)
 
 def get_api_key():
     return next(_key_pool)
 
 def clean_json_response(text: str) -> str:
-    """Strip markdown fences Gemini Flash occasionally wraps around JSON."""
+    """Strip markdown fences Groq occasionally wraps around JSON."""
     text = text.strip()
     text = re.sub(r'^```json\s*', '', text)
     text = re.sub(r'^```\s*', '', text)
@@ -255,12 +256,15 @@ Return ONLY valid JSON:
 """
 
 def evaluate_quality(stage_name: str, output_json: dict) -> dict:
-    genai.configure(api_key=get_api_key())
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    from groq import Groq
+    client = Groq(api_key=get_api_key())
     prompt = GATE_PROMPT.format(stage=stage_name, output=json.dumps(output_json, indent=2))
     try:
-        response = model.generate_content(prompt)
-        result = safe_parse(response.text)
+        response = client.chat.completions.create(
+            model="moonshotai/kimi-k2-instruct-0905",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        result = safe_parse(response.choices[0].message.content)
         # Demo mode: just log, never block
         print(f"[QualityGate:{stage_name}] {result['decision']} (confidence={result['confidence']}): {result['reason']}")
         return result
@@ -276,30 +280,26 @@ def evaluate_quality(stage_name: str, output_json: dict) -> dict:
 ### Agent 1 — `agents/literature_agent.py`
 
 **Two-pass design:**
-1. Semantic Scholar API → raw papers (free, no key needed)
-2. Gemini Flash → summarise + extract contribution
+1. Multi-API Fetcher → Intelligently select combinations of Semantic Scholar, arXiv, PubMed, CrossRef, and OpenAlex. Fetch and deduplicate.
+2. Groq's Moonshot model → summarise + extract contribution
 
 ```python
 # Pass 1 — retrieval
-GET https://api.semanticscholar.org/graph/v1/paper/search
-  ?query={topic}
-  &limit=20
-  &fields=title,abstract,year,authors,externalIds,citationCount
-  &sort=citationCount:desc
+fetcher = MultiAPIFetcher()
+filtered = fetcher.fetch_all(topic, max_papers=20, auto_select=True)
 
-# Filter:
-# - Drop if abstract is None or ""
-# - Drop if year < 2018 (relax to 2015 if fewer than 8 survive)
-# - Take top 10-12 after filtering
+# Filter/Deduplicate:
+# - Deduplicate by DOI, then title.
+# - Return rich metadata with api_source and url.
 ```
 
 **Pass 2 Prompt:**
 ```
-You are a research assistant. Below are abstracts on "{topic}" from Semantic Scholar.
+You are a research assistant. Below are research papers on "{topic}" from multiple academic databases.
 For each paper, write a 2–3 sentence plain-English summary and identify the single most
-important contribution.
+important contribution. Keep the 'api_source' and 'url' fields exactly as provided.
 
-Papers: {semantic_scholar_results_json}
+Papers: {papers_for_llm_json}
 
 Return ONLY valid JSON:
 {
@@ -310,7 +310,8 @@ Return ONLY valid JSON:
       "year": <year>,
       "summary": "2-3 sentence summary",
       "contribution": "single most novel contribution",
-      "source": "DOI or URL"
+      "api_source": "exact api_source from input",
+      "url": "exact url from input"
     }
   ]
 }
@@ -620,7 +621,7 @@ Commit these on Day 1 so Person B and C can start without waiting for real API c
 
 1. **6 agents:** Literature → Trend → Gap → Methodology → Grant → Novelty
 2. **Why vectorless?** Tree Builder replaces cosine similarity with LLM-native hierarchical navigation — interpretable, zero infra
-3. **Why Flash + Semantic Scholar?** Two-pass design separates retrieval from intelligence. Semantic Scholar = real papers, no hallucination. Flash = free, 1M context, sufficient for 10–15 paper corpus
+3. **Why Groq + Multi-API?** Two-pass design separates retrieval from intelligence. Multi-API Fetcher (Semantic Scholar, arXiv, etc.) = real papers, diverse coverage, no hallucination. Groq = free, sufficient for 10–15 paper corpus
 4. **Two-step novelty:** Step 1 prunes themes (fast), Step 2 compares papers in selected themes only (focused). Coarse-to-fine — how humans review
 5. **Quality gates:** After Agent 1 and Agent 3. Returns PASS/REVISE/FAIL + confidence. Prevents silent error propagation
 6. **Above spec:** Tree Index Builder + 2 quality gates are extras, not replacements for the 6 required agents

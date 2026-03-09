@@ -45,8 +45,8 @@ def call_gemini_with_retry(prompt, system_instruction=None, retries=6):
         except Exception as e:
             err = str(e)
             if "429" in err or "rate_limit" in err.lower():
-                match = re.search(r'(\d+)', err)
-                wait = int(match.group(1)) if match else 60
+                match = re.search(r'retry after (\d+)', err.lower()) or re.search(r'(\d+)s', err)
+                wait = int(match.group(1)) + 2 if match else 30
                 print(f"  429 Rate Limit — waiting {wait}s before retry {attempt+1}/{retries}")
                 time.sleep(wait)
             elif "503" in err or "unavailable" in err.lower():
