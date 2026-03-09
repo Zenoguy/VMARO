@@ -3,3 +3,5 @@ requests
 streamlit
 python-dotenv
 groq
+beautifulsoup4
+scholarly

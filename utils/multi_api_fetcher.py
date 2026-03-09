@@ -9,7 +9,6 @@ import re
 import time
 import requests
 from typing import List, Dict
-from urllib.parse import quote
 
 
 class MultiAPIFetcher:
@@ -136,6 +135,12 @@ class MultiAPIFetcher:
                 print(f"❌ Failed: {str(e)[:60]}")
                 continue
         
+        # ── Fallback: web scraping if all APIs failed ─────────────────────
+        if len(all_papers) == 0:
+            print(f"\n  ⚠️  All APIs returned 0 papers. Trying web scraping fallback...")
+            fallback = self._web_scrape_fallback(topic, limit=max_papers)
+            all_papers.extend(fallback)
+
         print(f"\n  {'─' * 70}")
         print(f"  📊 Total papers fetched: {len(all_papers)}")
         
@@ -167,8 +172,156 @@ class MultiAPIFetcher:
         
         return final_papers
     
+    # ──────────────────────────────────────────────────────────────────────
+    # Web scraping fallback (used only when ALL APIs fail)
+    # ──────────────────────────────────────────────────────────────────────
+
+    def _web_scrape_fallback(self, topic: str, limit: int = 20) -> List[Dict]:
+        """Fallback scraper: tries arXiv web, then Google Scholar (scholarly)"""
+        papers = []
+
+        # 1) arXiv search page
+        print(f"  [FALLBACK 1/2] Scraping arXiv web...", end=" ")
+        try:
+            arxiv_papers = self._scrape_arxiv_web(topic, limit=limit)
+            papers.extend(arxiv_papers)
+            print(f"✓ Got {len(arxiv_papers)} papers")
+        except ImportError as e:
+            print(f"⚠️  {e}")
+        except Exception as e:
+            print(f"❌ {str(e)[:60]}")
+
+        # 2) Google Scholar via scholarly (optional dependency)
+        if len(papers) < limit:
+            remaining = limit - len(papers)
+            print(f"  [FALLBACK 2/2] Scraping Google Scholar (scholarly)...", end=" ")
+            try:
+                gs_papers = self._scrape_google_scholar(topic, limit=remaining)
+                papers.extend(gs_papers)
+                print(f"✓ Got {len(gs_papers)} papers")
+            except ImportError:
+                print(f"⚠️  scholarly not installed — run: pip install scholarly")
+            except Exception as e:
+                print(f"❌ {str(e)[:60]}")
+
+        return papers
+
+    def _scrape_arxiv_web(self, topic: str, limit: int = 20) -> List[Dict]:
+        """Scrape arXiv search results page with BeautifulSoup"""
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            raise ImportError("beautifulsoup4 not installed — run: pip install beautifulsoup4")
+
+        url = "https://arxiv.org/search/"
+        params = {"query": topic, "searchtype": "all", "start": 0}
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+
+        r = requests.get(url, params=params, headers=headers, timeout=20)
+        r.raise_for_status()
+
+        soup = BeautifulSoup(r.content, "html.parser")
+        results = soup.find_all("li", class_="arxiv-result")
+
+        normalized = []
+        for item in results[:limit * 2]:  # over-fetch to account for filtered items
+            if len(normalized) >= limit:
+                break
+            try:
+                title_elem = item.find("p", class_="title")
+                title = title_elem.get_text(strip=True) if title_elem else ""
+
+                # Prefer full abstract, fall back to short
+                abstract_elem = (
+                    item.find("span", class_="abstract-full")
+                    or item.find("span", class_="abstract-short")
+                )
+                abstract = abstract_elem.get_text(strip=True) if abstract_elem else ""
+                abstract = re.sub(r'[▽△]\s*(Less|More)', '', abstract).strip()
+
+                if not abstract or len(abstract) < 50:
+                    continue
+
+                authors = []
+                authors_elem = item.find("p", class_="authors")
+                if authors_elem:
+                    authors = [a.get_text(strip=True) for a in authors_elem.find_all("a")]
+
+                year = 0
+                date_elem = item.find("p", class_="is-size-7")
+                if date_elem:
+                    m = re.search(r'\b(20\d{2})\b', date_elem.get_text())
+                    if m:
+                        year = int(m.group(1))
+
+                url_val = ""
+                link_elem = item.find("p", class_="list-title")
+                if link_elem:
+                    a_tag = link_elem.find("a")
+                    if a_tag:
+                        url_val = a_tag.get("href", "")
+
+                normalized.append({
+                    "title": title,
+                    "abstract": abstract,
+                    "year": year,
+                    "authors": authors,
+                    "doi": "",
+                    "citationCount": 0,
+                    "source": "arXiv (web)",
+                    "url": url_val
+                })
+            except Exception:
+                continue
+
+        return normalized
+
+    def _scrape_google_scholar(self, topic: str, limit: int = 10) -> List[Dict]:
+        """Scrape Google Scholar using the scholarly library"""
+        from scholarly import scholarly
+
+        normalized = []
+        for i, result in enumerate(scholarly.search_pubs(topic)):
+            if i >= limit:
+                break
+            bib = result.get("bib", {})
+            title = bib.get("title", "")
+            abstract = bib.get("abstract", "")
+
+            if not abstract or len(abstract.strip()) < 50:
+                continue
+
+            year = 0
+            try:
+                year = int(bib.get("pub_year", 0))
+            except (ValueError, TypeError):
+                pass
+
+            authors = bib.get("author", [])
+            if isinstance(authors, str):
+                authors = [a.strip() for a in authors.split(" and ")]
+
+            normalized.append({
+                "title": title,
+                "abstract": abstract,
+                "year": year,
+                "authors": authors,
+                "doi": "",
+                "citationCount": result.get("num_citations", 0),
+                "source": "Google Scholar",
+                "url": result.get("pub_url", "")
+            })
+
+        return normalized
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Primary API fetchers
+    # ──────────────────────────────────────────────────────────────────────
+
     def _fetch_semantic_scholar(self, topic: str, limit: int = 25) -> List[Dict]:
-        """Fetch from Semantic Scholar API"""
+        """Fetch from Semantic Scholar API with retry on rate limit"""
         headers = {}
         if self.ss_key:
             headers["x-api-key"] = self.ss_key
@@ -214,8 +367,10 @@ class MultiAPIFetcher:
     def _fetch_arxiv(self, topic: str, limit: int = 15) -> List[Dict]:
         """Fetch from arXiv API"""
         base_url = "http://export.arxiv.org/api/query"
+        # Do NOT use quote() here - requests handles URL encoding automatically
+        # Using quote() causes double-encoding (%20 → %2520) which breaks the query
         params = {
-            "search_query": f"all:{quote(topic)}",
+            "search_query": f"all:{topic}",
             "max_results": limit,
             "sortBy": "submittedDate",
             "sortOrder": "descending"
