@@ -175,6 +175,7 @@ if "formats" not in st.session_state: st.session_state.formats = load_all_format
 if "user_format_override" not in st.session_state: st.session_state.user_format_override = None
 if "active_step" not in st.session_state: st.session_state.active_step = 1
 if "debug_logs" not in st.session_state: st.session_state.debug_logs = []
+if "is_running_pipeline" not in st.session_state: st.session_state.is_running_pipeline = False
 
 class StreamCapture:
     def __init__(self, original_stdout):
@@ -207,10 +208,10 @@ def set_stage(key, status):
     st.session_state.stage_status[key] = status
 
 # ── Layout structure ─────────────────────────────────────────────────────────
-col_nav, col_main = st.columns([1, 3])
+col_main = st.container()
 
-# ── Left Column: Navigator ───────────────────────────────────────────────────
-with col_nav:
+# ── Sidebar: Navigator ───────────────────────────────────────────────────
+with st.sidebar:
     st.markdown("### Configuration")
     topic = st.text_input(
         "Research Topic",
@@ -235,106 +236,115 @@ with col_nav:
     st.markdown("---")
     st.markdown("##### Pipeline")
     
-    # Define steps logic
-    STEPS = [
-        (1, "Literature Mining", "papers"),
-        (2, "Thematic Tree", "tree"),
-        (3, "Trends & Gaps", "gaps"),
-        (4, "Gap Selection", "user_gap_selection"),
-        (5, "Methodology", "methodology_eval"),
-        (6, "Format Selection", "format_match"),
-        (7, "Grant Proposal", "grant"),
-        (8, "Novelty Score", "novelty"),
-    ]
+    pipeline_placeholder = st.empty()
     
-    # Calculate state of each step
-    def get_step_state(step_num, cache_key):
-        if step_num == 4:
-            if load("user_gap_selection"): return "complete"
-            if load("gaps"): return "awaiting"
-        if step_num == 6:
-            # Grant format wait state -- Actually wait till user generates the grant proposal
-            if load("grant"): return "complete"
-            if load("methodology_eval"): return "awaiting"
-        
-        # Methodology step relies on methodology_a existing or eval
-        if step_num == 5:
-            if load("methodology_a") or load("methodology_eval"): return "complete"
-        
-        # Trends & Gaps relies on gaps or trends
-        if step_num == 3:
-            if load("trends") or load("gaps"): return "complete"
+    def update_pipeline_sidebar():
+        with pipeline_placeholder.container():
+            # Define steps logic
+            STEPS = [
+                (1, "Literature Mining", "papers"),
+                (2, "Thematic Tree", "tree"),
+                (3, "Trends & Gaps", "gaps"),
+                (4, "Gap Selection", "user_gap_selection"),
+                (5, "Methodology", "methodology_eval"),
+                (6, "Format Selection", "format_match"),
+                (7, "Grant Proposal", "grant"),
+                (8, "Novelty Score", "novelty"),
+            ]
             
-        # General state
-        if load(cache_key): return "complete"
-        # Check if any associated stage is running
-        for k in st.session_state.stage_status:
-            if st.session_state.stage_status[k] == "running":
-                # Rough mapping
-                if step_num == 1 and k == "papers": return "running"
-                if step_num == 2 and k == "tree": return "running"
-                if step_num == 3 and k in ["trends", "gaps"]: return "running"
-                if step_num == 5 and k in ["methodology_a", "methodology_b", "methodology_eval"]: return "running"
-                if step_num == 7 and k == "grant": return "running"
-                if step_num == 8 and k == "novelty": return "running"
-        return "pending"
-    
-    for step_num, label, key in STEPS:
-        state = get_step_state(step_num, key)
-        
-        if state == "complete":
-            icon = "✓"
-            css_class = "step-complete"
-            is_clickable = True
-        elif state == "running":
-            icon = "▶"
-            css_class = "step-running"
-            is_clickable = False
-        elif state == "awaiting":
-            icon = "⬡"
-            css_class = "step-awaiting"
-            is_clickable = True
-        else:
-            icon = "○"
-            css_class = "step-pending"
-            is_clickable = False
+            # Calculate state of each step
+            def get_step_state(step_num, cache_key):
+                if step_num == 4:
+                    if load("user_gap_selection"): return "complete"
+                    if load("gaps"): return "awaiting"
+                if step_num == 6:
+                    # Grant format wait state -- Actually wait till user generates the grant proposal
+                    if load("grant"): return "complete"
+                    if load("methodology_eval"): return "awaiting"
+                
+                # Methodology step relies on methodology_a existing or eval
+                if step_num == 5:
+                    if load("methodology_a") or load("methodology_eval"): return "complete"
+                
+                # Trends & Gaps relies on gaps or trends
+                if step_num == 3:
+                    if load("trends") or load("gaps"): return "complete"
+                    
+                # General state
+                if load(cache_key): return "complete"
+                # Check if any associated stage is running
+                for k in st.session_state.stage_status:
+                    if st.session_state.stage_status[k] == "running":
+                        # Rough mapping
+                        if step_num == 1 and k == "papers": return "running"
+                        if step_num == 2 and k == "tree": return "running"
+                        if step_num == 3 and k in ["trends", "gaps"]: return "running"
+                        if step_num == 5 and k in ["methodology_a", "methodology_b", "methodology_eval"]: return "running"
+                        if step_num == 7 and k == "grant": return "running"
+                        if step_num == 8 and k == "novelty": return "running"
+                return "pending"
             
-        # Add visual indication for active step
-        active_style = "background: rgba(124, 58, 237, 0.2); border-left: 3px solid #7c3aed; padding-left: 8px;" if st.session_state.active_step == step_num else ""
-        
-        # Clickable buttons disguised as markdown using Streamlit buttons without background
-        if is_clickable:
-            if st.button(f"{icon}  {step_num}  {label}", key=f"nav_{step_num}", use_container_width=True):
-                st.session_state.active_step = step_num
-                st.rerun()
-        else:
-            st.markdown(f'<div style="padding: 4px 0; color: #4b5563; {active_style}"> {icon}  {step_num}  {label}</div>', unsafe_allow_html=True)
+            for step_num, label, key in STEPS:
+                state = get_step_state(step_num, key)
+                
+                if state == "complete":
+                    icon = "✓"
+                    css_class = "step-complete"
+                    is_clickable = True
+                elif state == "running":
+                    icon = "▶"
+                    css_class = "step-running"
+                    is_clickable = False
+                elif state == "awaiting":
+                    icon = "⬡"
+                    css_class = "step-awaiting"
+                    is_clickable = True
+                else:
+                    icon = "○"
+                    css_class = "step-pending"
+                    is_clickable = False
+                    
+                # Add visual indication for active step
+                active_style = "background: rgba(124, 58, 237, 0.2); border-left: 3px solid #7c3aed; padding-left: 8px;" if st.session_state.active_step == step_num else ""
+                
+                if getattr(st.session_state, "is_running_pipeline", False):
+                    is_clickable = False
+                
+                # Clickable buttons disguised as markdown using Streamlit buttons without background
+                if is_clickable:
+                    if st.button(f"{icon}  {step_num}  {label}", key=f"nav_{step_num}", use_container_width=True):
+                        st.session_state.active_step = step_num
+                        st.rerun()
+                else:
+                    st.markdown(f'<div style="padding: 4px 0; color: #4b5563; {active_style}"> {icon}  {step_num}  {label}</div>', unsafe_allow_html=True)
+                    
+            st.markdown("<br>", unsafe_allow_html=True)
             
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Quality Gates Pills
-    qg1 = load("qg1") or {}
-    qg2 = load("qg2") or {}
-    
-    qg1_dec = qg1.get("decision", "PENDING")
-    qg2_dec = qg2.get("decision", "PENDING")
-    
-    def get_qg_color(dec):
-        if dec == "PASS": return "#4ade80"
-        if dec == "REVISE": return "#eab308"
-        if dec == "FAIL": return "#ef4444"
-        return "#4b5563"
-        
-    st.markdown(f"""
-    <div style="font-size: 0.8rem; margin-bottom: 4px; display: flex; justify-content: space-between;">
-        <span>Quality Gate 1:</span>
-        <span style="color: {get_qg_color(qg1_dec)}; font-weight: bold;">[{qg1_dec}]</span>
-    </div>
-    <div style="font-size: 0.8rem; display: flex; justify-content: space-between;">
-        <span>Quality Gate 2:</span>
-        <span style="color: {get_qg_color(qg2_dec)}; font-weight: bold;">[{qg2_dec}]</span>
-    </div>
-    """, unsafe_allow_html=True)
+            # Quality Gates Pills
+            qg1 = load("qg1") or {}
+            qg2 = load("qg2") or {}
+            
+            qg1_dec = qg1.get("decision", "PENDING")
+            qg2_dec = qg2.get("decision", "PENDING")
+            
+            def get_qg_color(dec):
+                if dec == "PASS": return "#4ade80"
+                if dec == "REVISE": return "#eab308"
+                if dec == "FAIL": return "#ef4444"
+                return "#4b5563"
+                
+            st.markdown(f"""
+            <div style="font-size: 0.8rem; margin-bottom: 4px; display: flex; justify-content: space-between;">
+                <span>Quality Gate 1:</span>
+                <span style="color: {get_qg_color(qg1_dec)}; font-weight: bold;">[{qg1_dec}]</span>
+            </div>
+            <div style="font-size: 0.8rem; display: flex; justify-content: space-between;">
+                <span>Quality Gate 2:</span>
+                <span style="color: {get_qg_color(qg2_dec)}; font-weight: bold;">[{qg2_dec}]</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+    update_pipeline_sidebar()
     
     st.markdown("---")
     st.markdown("### Custom Grant Format")
@@ -373,6 +383,8 @@ if run_btn:
         st.error("Please enter a research topic.")
         st.stop()
 
+    st.session_state.is_running_pipeline = True
+
     last_topic_file = os.path.join(CACHE_DIR, "_topic.txt")
     if os.path.exists(CACHE_DIR) and os.path.exists(last_topic_file):
         prev_topic = open(last_topic_file).read().strip()
@@ -403,45 +415,58 @@ if run_btn:
     with col_main:
         with st.status("🚀 **Running Phase 1 Pipeline**", expanded=True):
             set_stage("papers", "running")
+            update_pipeline_sidebar()
             st.write("**Fetching papers sequentially...**")
             papers = load("papers") or run_literature(topic)
             if not load("papers"): save("papers", papers)
             st.session_state.papers = papers
             set_stage("papers", "complete")
+            update_pipeline_sidebar()
 
             set_stage("tree", "running")
+            update_pipeline_sidebar()
             st.write("**Clustering papers...**")
             tree = load("tree") or run_tree(papers)
             if not load("tree"): save("tree", tree)
             st.session_state.tree = tree
             set_stage("tree", "complete")
+            update_pipeline_sidebar()
 
             set_stage("qg1", "running")
+            update_pipeline_sidebar()
             qg1 = load("qg1") or evaluate_quality("post_literature", tree)
             if not load("qg1"): save("qg1", qg1)
             st.session_state.qg1 = qg1
             set_stage("qg1", "complete")
+            update_pipeline_sidebar()
 
             set_stage("trends", "running")
+            update_pipeline_sidebar()
             st.write("**Analyzing trends...**")
             trends = load("trends") or run_trend(tree)
             if not load("trends"): save("trends", trends)
             st.session_state.trends = trends
             set_stage("trends", "complete")
+            update_pipeline_sidebar()
             
             set_stage("gaps", "running")
+            update_pipeline_sidebar()
             st.write("**Identifying research gaps...**")
             gaps = load("gaps") or run_gap(tree, trends)
             if not load("gaps"): save("gaps", gaps)
             st.session_state.gaps = gaps
             set_stage("gaps", "complete")
+            update_pipeline_sidebar()
             
             set_stage("qg2", "running")
+            update_pipeline_sidebar()
             qg2 = load("qg2") or evaluate_quality("post_gap", gaps)
             if not load("qg2"): save("qg2", qg2)
             st.session_state.qg2 = qg2
             set_stage("qg2", "complete")
+            update_pipeline_sidebar()
 
+    st.session_state.is_running_pipeline = False
     sys.stdout = _original_stdout
     st.session_state.active_step = 4
     st.rerun()
@@ -574,7 +599,7 @@ with col_main:
                     
             config = Config(
                 width="100%",
-                height=550,
+                height=900,
                 directed=True,
                 physics=True,
                 hierarchical=True,
@@ -582,9 +607,9 @@ with col_main:
                     "enabled": True,
                     "direction": "UD",
                     "sortMethod": "directed",
-                    "levelSeparation": 120,
-                    "nodeSpacing": 100,
-                    "treeSpacing": 150,
+                    "levelSeparation": 180,
+                    "nodeSpacing": 150,
+                    "treeSpacing": 200,
                     "blockShifting": True,
                     "edgeMinimization": True,
                     "parentCentralization": True,

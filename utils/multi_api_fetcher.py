@@ -367,10 +367,15 @@ class MultiAPIFetcher:
     def _fetch_arxiv(self, topic: str, limit: int = 15) -> List[Dict]:
         """Fetch from arXiv API"""
         base_url = "http://export.arxiv.org/api/query"
+        
+        # Extract meaningful keywords for arXiv's exact AND matching
+        query_terms = [w for w in topic.split() if w.lower() not in ('in', 'on', 'the', 'of', 'and', 'a', 'to', 'for', 'with', 'by')]
+        arxiv_query = ' AND '.join([f'all:{w}' for w in query_terms])
+        
         # Do NOT use quote() here - requests handles URL encoding automatically
         # Using quote() causes double-encoding (%20 → %2520) which breaks the query
         params = {
-            "search_query": f"all:{topic}",
+            "search_query": arxiv_query,
             "max_results": limit,
             "sortBy": "submittedDate",
             "sortOrder": "descending"
