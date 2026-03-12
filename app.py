@@ -10,6 +10,7 @@ from streamlit_agraph import agraph, Node, Edge, Config
 from utils.cache import save, load, CACHE_DIR
 from utils.format_loader import load_all_formats, register_custom_format
 from agents.format_matcher import run as run_format_matcher
+from utils.latex_exporter import generate_pdf_bytes, generate_latex_source
 
 # ── Page Config ──────────────────────────────────────────────────────────────
 st.set_page_config(page_title="VMARO Research Orchestrator", layout="wide")
@@ -868,6 +869,7 @@ with col_main:
         if grant_data:
             topic = st.session_state.pipeline_topic
             fmt_id = fm.get("selected_format_id", "Unknown")
+            fmt_name = (st.session_state.formats or {}).get(fmt_id, {}).get("name", fmt_id)
             is_auto = "" if st.session_state.user_format_override else " — LLM selected"
             
             c1, c2 = st.columns([3, 1])
@@ -875,7 +877,37 @@ with col_main:
                 st.markdown(f"# {topic}")
                 st.markdown(f'<span style="background:#4b5563; padding:4px 10px; border-radius:12px; font-size:0.85rem;">Format: {fmt_id}{is_auto}</span>', unsafe_allow_html=True)
             with c2:
-                st.download_button("Export as text file", data=json.dumps(grant_data, indent=2), file_name="grant.txt")
+                # ── PDF download ──────────────────────────────────────────
+                try:
+                    pdf_bytes = generate_pdf_bytes(grant_data, topic, fmt_name)
+                    st.download_button(
+                        label="⬇ Download as PDF",
+                        data=pdf_bytes,
+                        file_name="grant_proposal.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                    )
+                except Exception as _pdf_err:
+                    st.warning(f"PDF generation unavailable: {_pdf_err}")
+
+                # ── LaTeX source download ─────────────────────────────────
+                tex_source = generate_latex_source(grant_data, topic, fmt_name)
+                st.download_button(
+                    label="⬇ Download as LaTeX (.tex)",
+                    data=tex_source,
+                    file_name="grant_proposal.tex",
+                    mime="text/x-tex",
+                    use_container_width=True,
+                )
+
+                # ── Raw JSON fallback ─────────────────────────────────────
+                with st.expander("Raw JSON export"):
+                    st.download_button(
+                        "Download JSON",
+                        data=json.dumps(grant_data, indent=2),
+                        file_name="grant_proposal.json",
+                        mime="application/json",
+                    )
                 
             st.markdown("---")
             for key, val in grant_data.items():
