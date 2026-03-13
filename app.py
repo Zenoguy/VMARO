@@ -417,7 +417,7 @@ if run_btn:
         with st.status("🚀 **Running Phase 1 Pipeline**", expanded=True):
             set_stage("papers", "running")
             update_pipeline_sidebar()
-            st.write("**Fetching papers sequentially...**")
+            st.write("**Fetching papers parallely...**")
             papers = load("papers") or run_literature(topic)
             if not load("papers"): save("papers", papers)
             st.session_state.papers = papers

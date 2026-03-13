@@ -8,6 +8,7 @@ import os
 import re
 import time
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict
 
 
@@ -97,43 +98,54 @@ class MultiAPIFetcher:
             else:
                 sources = ['semantic_scholar', 'arxiv', 'crossref', 'openalex']
         
-        print(f"\n  📚 Fetching papers from {len(sources)} source(s): {', '.join(sources)}")
+        print(f"\n  📚 Fetching papers from {len(sources)} source(s) in parallel: {', '.join(sources)}")
         print(f"  {'─' * 70}")
-        
+
+        # Map each source name to its fetch call
+        source_limits = {
+            'semantic_scholar': 25,
+            'arxiv': 15,
+            'pubmed': 15,
+            'crossref': 12,
+            'openalex': 12,
+            'core': 10,
+        }
+
+        def _fetch_source(source: str):
+            limit = source_limits.get(source, 10)
+            if source == 'semantic_scholar':
+                return source, self._fetch_semantic_scholar(topic, limit=limit)
+            elif source == 'arxiv':
+                return source, self._fetch_arxiv(topic, limit=limit)
+            elif source == 'pubmed':
+                return source, self._fetch_pubmed(topic, limit=limit)
+            elif source == 'crossref':
+                return source, self._fetch_crossref(topic, limit=limit)
+            elif source == 'openalex':
+                return source, self._fetch_openalex(topic, limit=limit)
+            elif source == 'core':
+                return source, self._fetch_core(topic, limit=limit)
+            else:
+                raise ValueError(f"Unknown source: {source}")
+
         all_papers = []
-        
-        # Fetch from each source SEQUENTIALLY with sleep between calls
-        for idx, source in enumerate(sources, 1):
-            try:
-                print(f"\n  [{idx}/{len(sources)}] Querying {source.upper()}...", end=" ")
-                
-                # Semantic Scholar gets priority with higher limit
-                if source == 'semantic_scholar':
-                    papers = self._fetch_semantic_scholar(topic, limit=25)
-                elif source == 'arxiv':
-                    papers = self._fetch_arxiv(topic, limit=15)
-                elif source == 'pubmed':
-                    papers = self._fetch_pubmed(topic, limit=15)
-                elif source == 'crossref':
-                    papers = self._fetch_crossref(topic, limit=12)
-                elif source == 'openalex':
-                    papers = self._fetch_openalex(topic, limit=12)
-                elif source == 'core':
-                    papers = self._fetch_core(topic, limit=10)
-                else:
-                    print(f"❌ Unknown source")
-                    continue
-                
-                all_papers.extend(papers)
-                print(f"✓ Retrieved {len(papers)} papers")
-                
-                # Rate limiting between API calls
-                if idx < len(sources):
-                    time.sleep(1.0)
-                
-            except Exception as e:
-                print(f"❌ Failed: {str(e)[:60]}")
-                continue
+        results_map: Dict[str, List[Dict]] = {}
+
+        with ThreadPoolExecutor(max_workers=len(sources)) as executor:
+            future_to_source = {executor.submit(_fetch_source, s): s for s in sources}
+            for future in as_completed(future_to_source):
+                source = future_to_source[future]
+                try:
+                    _, papers = future.result()
+                    results_map[source] = papers
+                    print(f"  ✓ {source.upper()}: retrieved {len(papers)} papers")
+                except Exception as e:
+                    print(f"  ❌ {source.upper()}: failed — {str(e)[:60]}")
+                    results_map[source] = []
+
+        # Preserve original source ordering when merging
+        for source in sources:
+            all_papers.extend(results_map.get(source, []))
         
         # ── Fallback: web scraping if all APIs failed ─────────────────────
         if len(all_papers) == 0:
