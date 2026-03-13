@@ -9,3 +9,4 @@ plotly
 streamlit-agraph
 boto3
 reportlab
+tiktoken==0.5.2
