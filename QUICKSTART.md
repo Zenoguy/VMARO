@@ -2,29 +2,28 @@
 
 ## Prerequisites
 
-- Python 3.10+
-- At least 1 Groq API key ([get one free](https://console.groq.com/keys))
+- **Python 3.10+**
+- **Groq API Keys**: At least 1 (3 recommended for optimal speed). [Get them for free here](https://console.groq.com/keys).
 
 ---
 
 ## 1. Setup
 
 ```bash
-# Clone / navigate to the project
-cd VAMRO
+# Clone and enter the repository
+git clone https://github.com/your-org/vmaro.git
+cd vmaro
 
-# Create virtual environment
+# Initialize virtual environment
 python3 -m venv venv
 source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Configure your API keys
+# Configure environment
 cp .env.example .env
 ```
-
-Edit `.env` and paste your Groq keys:
 
 ```
 GROQ_API_KEY_1=gsk_...your-first-key
