@@ -29,7 +29,7 @@ def call_gemini_with_retry(prompt, system_instruction=None, retries=6):
             messages.append({"role": "user", "content": prompt})
             
             response = client.chat.completions.create(
-                model="moonshotai/kimi-k2-instruct-0905",
+                model="qwen/qwen3-32b",
                 messages=messages,
                 response_format={"type": "json_object"},
                 temperature=0.7,
@@ -52,6 +52,7 @@ def call_gemini_with_retry(prompt, system_instruction=None, retries=6):
                 wait = min(max(wait, 5), 60)
                 print(f"  429 Rate Limit — waiting {wait}s before retry {attempt+1}/{retries}")
                 time.sleep(wait)
+                client = Groq(api_key=get_api_key()) # Rotate key on 429
             elif "503" in err or "unavailable" in err.lower():
                 wait = 15
                 print(f"  503 Unavailable — waiting {wait}s before retry {attempt+1}/{retries}")

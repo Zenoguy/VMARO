@@ -8,7 +8,7 @@ api_key = os.getenv('GROQ_API_KEY_1')
 client = Groq(api_key=api_key)
 
 models_to_test = [
-    "moonshotai/kimi-k2-instruct-0905",
+    "qwen/qwen3-32b",
     "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant"
 ]

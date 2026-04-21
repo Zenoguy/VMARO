@@ -37,7 +37,7 @@ def test_basic_completion():
     try:
         client = Groq(api_key=get_api_key())
         response = client.chat.completions.create(
-            model="moonshotai/kimi-k2-instruct-0905",
+            model="qwen/qwen3-32b",
             messages=[{"role": "user", "content": "Reply with exactly one word: OK"}],
             temperature=0.7
         )
@@ -61,7 +61,7 @@ def test_json_output():
   "message": "groq json test passed"
 }"""
         response = client.chat.completions.create(
-            model="moonshotai/kimi-k2-instruct-0905",
+            model="qwen/qwen3-32b",
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
             temperature=0.7
