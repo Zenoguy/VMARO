@@ -196,8 +196,3 @@ vmaro/
 - Paper count is intentionally bounded at 20 to optimize token efficiency and maintain coherent thematic clustering — larger corpora dilute signal without improving output quality at current LLM context limits.
 - Deeper automated web-searching in the Methodology generation phase for specific up-to-date Python/R package implementations.
 
----
-
-## License
-
-MIT License. Feel free to fork, expand, and commercialize.
