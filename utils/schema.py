@@ -9,18 +9,25 @@ from groq import Groq
 load_dotenv(override=True)
 
 keys = [k for k in [os.getenv(f"GROQ_API_KEY_{i}") for i in (1, 2, 3)] if k]
+if not keys and os.getenv("GROQ_API_KEY"):
+    keys = [os.getenv("GROQ_API_KEY")]
 key_pool = itertools.cycle(keys) if keys else None
 
 def get_api_key() -> str:
     """Return the next API key from the pool."""
     return next(key_pool) if key_pool else ""
 
+def get_groq_client():
+    key = get_api_key()
+    return Groq(api_key=key) if key else Groq()
+
 def call_gemini_with_retry(prompt, system_instruction=None, retries=6):
     """
     Call Groq API with retry logic.
     Renamed from call_gemini_with_retry for backward compatibility.
     """
-    client = Groq(api_key=get_api_key())
+    client = get_groq_client()
+    model_name = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
     for attempt in range(retries):
         try:
             messages = []
@@ -29,10 +36,12 @@ def call_gemini_with_retry(prompt, system_instruction=None, retries=6):
             messages.append({"role": "user", "content": prompt})
             
             response = client.chat.completions.create(
-                model="qwen/qwen3-32b",
+                model=model_name,
                 messages=messages,
                 response_format={"type": "json_object"},
-                temperature=0.7,
+                temperature=0.6,
+                max_completion_tokens=2048,
+                top_p=0.95,
             )
             
             # Create a response object that mimics Gemini's structure
@@ -52,14 +61,14 @@ def call_gemini_with_retry(prompt, system_instruction=None, retries=6):
                 wait = min(max(wait, 5), 60)
                 print(f"  429 Rate Limit — waiting {wait}s before retry {attempt+1}/{retries}")
                 time.sleep(wait)
-                client = Groq(api_key=get_api_key()) # Rotate key on 429
+                client = get_groq_client() # Rotate key on 429
             elif "503" in err or "unavailable" in err.lower():
                 wait = 15
                 print(f"  503 Unavailable — waiting {wait}s before retry {attempt+1}/{retries}")
                 time.sleep(wait)
             elif "401" in err or "invalid" in err.lower():
                 print(f"  Invalid API Key — swapping to next key in pool...")
-                client = Groq(api_key=get_api_key())
+                client = get_groq_client()
             else:
                 raise  # non-429/401/503 errors fail immediately
     raise Exception("Max retries exceeded")
