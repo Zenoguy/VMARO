@@ -16,6 +16,8 @@ SEPARATOR = "-" * 50
 def test_env_keys():
     print("\n[1/4] Checking .env keys...")
     keys = [os.getenv(f"GROQ_API_KEY_{i}") for i in range(1, 4)]
+    if not any(keys) and os.getenv("GROQ_API_KEY"):
+        keys = [os.getenv("GROQ_API_KEY")]
     found = [(i+1, k) for i, k in enumerate(keys) if k]
     missing = [i+1 for i, k in enumerate(keys) if not k]
 
@@ -25,7 +27,7 @@ def test_env_keys():
         print(f"  ⚠️  GROQ_API_KEY_{idx} = not set")
 
     if not found:
-        print("  ❌ No keys found — add at least GROQ_API_KEY_1 to .env")
+        print("  ❌ No keys found — add at least GROQ_API_KEY_1 (or GROQ_API_KEY) to .env")
         sys.exit(1)
 
     print(f"  → {len(found)} key(s) loaded, {len(missing)} missing")
@@ -35,15 +37,18 @@ def test_env_keys():
 def test_basic_completion():
     print("\n[3/4] Testing basic Groq completion...")
     try:
-        client = Groq(api_key=get_api_key())
+        model = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+        client = Groq(api_key=get_api_key()) if get_api_key() else Groq()
         response = client.chat.completions.create(
-            model="qwen/qwen3-32b",
+            model=model,
             messages=[{"role": "user", "content": "Reply with exactly one word: OK"}],
-            temperature=0.7
+            temperature=0.6,
+            max_completion_tokens=2048,
+            top_p=0.95
         )
         text = response.choices[0].message.content.strip()
         if "OK" in text.upper():
-            print(f"  ✅ Model responded: '{text}'")
+            print(f"  ✅ Model ({model}) responded: '{text}'")
         else:
             print(f"  ⚠️  Unexpected response (model is live but replied): '{text}'")
     except Exception as e:
@@ -54,17 +59,20 @@ def test_basic_completion():
 def test_json_output():
     print("\n[4/4] Testing structured JSON output...")
     try:
-        client = Groq(api_key=get_api_key())
+        model = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+        client = Groq(api_key=get_api_key()) if get_api_key() else Groq()
         prompt = """Return ONLY valid JSON — no markdown, no extra text:
 {
   "status": "ok",
   "message": "groq json test passed"
 }"""
         response = client.chat.completions.create(
-            model="qwen/qwen3-32b",
+            model=model,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
-            temperature=0.7
+            temperature=0.6,
+            max_completion_tokens=2048,
+            top_p=0.95
         )
         raw = response.choices[0].message.content
         parsed = safe_parse(raw)
