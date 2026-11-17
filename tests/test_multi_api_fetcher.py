@@ -3,7 +3,9 @@ import os
 import tempfile
 import unittest
 from itertools import permutations
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+
+import requests
 
 from utils.multi_api_fetcher import MultiAPIFetcher
 
@@ -45,6 +47,78 @@ class DeduplicationTests(unittest.TestCase):
             for records in permutations([a, b]):
                 with self.subTest(other=b, records=records):
                     self.assertEqual(len(self.fetcher._deduplicate(records)), 2)
+
+    def test_crossref_direction_and_provenance_in_both_orders(self):
+        preprint = paper(doi="https://doi.org/10.1234/PRE", source="CrossRef", url="pre")
+        publication = paper(title="Revised title", doi="10.1234/pub", source="CrossRef",
+                            url="pub", crossref_type="journal-article")
+        for claimant, other, relation in (
+            (preprint, publication, "is-preprint-of"),
+            (publication, preprint, "has-preprint"),
+        ):
+            claimed = dict(claimant, crossref_relation={
+                relation: [{"id-type": "doi", "id": other["doi"]}]
+            })
+            for records in permutations([claimed, other]):
+                merged, = self.fetcher._deduplicate(records)
+                self.assertEqual((merged["doi"], merged["url"]), ("10.1234/pub", "pub"))
+                self.assertEqual(merged["duplicate_records"][0]["doi"], preprint["doi"])
+                self.assertEqual(merged["duplicate_records"][0]["url"], "pre")
+
+    def test_ambiguous_and_conflicting_crossref_claims(self):
+        def claim(doi, target, kind="is-preprint-of", **extra):
+            return paper(doi=doi, source="CrossRef", crossref_relation={
+                kind: [{"id-type": "doi", "id": target}]
+            }, **extra)
+
+        a, b, c = ("10.1234/a", "10.1234/b", "10.1234/c")
+        for records, count in (
+            ([claim(a, b), claim(b, a)], 2),
+            ([claim(a, b), claim(b, c), paper(doi=c)], 3),
+            ([claim(a, b), claim(b, c, "has-preprint")], 2),
+            ([claim(a, b), paper(doi=b, source="CrossRef", crossref_type="posted-content")], 2),
+            ([claim(a, b), paper(doi=b), paper(doi=c), paper()], 3),
+        ):
+            for order in permutations(records):
+                with self.subTest(order=order):
+                    self.assertEqual(len(self.fetcher._deduplicate(order)), count)
+
+    def test_crossref_malformed_relationships_are_ignored(self):
+        for relation in (None, [], {"is-preprint-of": {}}, {"is-preprint-of": [
+            None, {"id-type": "url", "id": "10.1234/b"}, {"id-type": "doi", "id": []}
+        ]}):
+            a = paper(doi="10.1234/a", source="CrossRef", crossref_relation=relation)
+            b = paper(doi="10.1234/b")
+            self.assertEqual(len(self.fetcher._deduplicate([a, b])), 2)
+
+    def test_crossref_normalization_preserves_relationship(self):
+        response = Mock()
+        response.json.return_value = {"message": {"items": [
+            {"DOI": "10.1234/pre", "abstract": "description " * 10,
+             "type": "posted-content", "relation": {"is-preprint-of": [
+                 {"id-type": "doi", "id": "10.1234/pub"}
+             ]}},
+        ]}}
+        with patch("utils.multi_api_fetcher.requests.get", return_value=response) as get:
+            preprint, = self.fetcher._fetch_crossref("query")
+            publication = paper(doi="10.1234/pub")
+            self.assertEqual(len(self.fetcher._deduplicate([preprint, publication])), 1)
+            get.assert_called_once()
+
+    def test_fetch_all_retains_distinct_dois_when_crossref_times_out(self):
+        a, b = paper(doi="10.1234/a"), paper(doi="10.1234/b")
+        payload = {"core_topic": "topic", "domain": "biomedical"}
+        with (tempfile.TemporaryDirectory() as tmp,
+            patch("utils.multi_api_fetcher.requests.get", side_effect=requests.Timeout),
+            patch.object(self.fetcher, "_fetch_pubmed", return_value=[a, b]),
+        ):
+            old = os.getcwd()
+            try:
+                os.chdir(tmp)
+                result = self.fetcher.fetch_all(payload)
+            finally:
+                os.chdir(old)
+        self.assertEqual(len(result), 2)
 
     def test_ambiguous_bridge_never_joins_distinct_dois(self):
         a = paper(doi='10.1234/a')
