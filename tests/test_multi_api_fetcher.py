@@ -32,6 +32,51 @@ class DeduplicationTests(unittest.TestCase):
                 self.assertEqual(result[0]['extra_field'], 'kept')
                 self.assertEqual(result[0]['duplicate_records'][0]['url'], preprint['url'])
 
+    def test_author_format_variants_with_matching_title(self):
+        for left, right in (
+            ("A. Ehrenfeucht", "Ehrenfeucht, Andrzej"),
+            ("Ehrenfeucht, A.", "Andrzej Ehrenfeucht"),
+            ("Andrzej Ehrenfeucht", "EHRENFEUCHT,   ANDRZEJ"),
+            ("Émilie O’Neil", "O'Neil, E\u0301milie"),
+            ("Alice B. Smith", "Smith, Alice Beth"),
+        ):
+            publication = paper(authors=[left], doi="10.1234/a", url="publication")
+            preprint = paper(authors=[right], url="preprint")
+            for records in permutations([publication, preprint]):
+                with self.subTest(left=left, right=right):
+                    merged, = self.fetcher._deduplicate(records)
+                    self.assertEqual(merged["url"], "publication")
+                    self.assertEqual(merged["duplicate_records"][0]["authors"], [right])
+                    self.assertEqual(merged["duplicate_records"][0]["url"], "preprint")
+
+    def test_author_conflicts_and_ambiguous_names(self):
+        for left, right in (
+            (["Andrzej Ehrenfeucht"], ["Adam Ehrenfeucht"]),
+            (["A. Ehrenfeucht"], ["Ehrenfeucht, A."]),
+            (["Ehrenfeucht"], ["Ehrenfeucht"]),
+            (["Alice B. Smith"], ["Alice C. Smith"]),
+            (["Alice Smith"], ["Alice Smith, Bob Jones, Carol Doe"]),
+            (["Alice Smith"], [None, "Alice Smith"]),
+            (["Alice Smith"], "Alice Smith"),
+            (["Alice Smith"], []),
+        ):
+            for records in permutations([paper(authors=left), paper(authors=right)]):
+                with self.subTest(left=left, right=right):
+                    self.assertEqual(len(self.fetcher._deduplicate(records)), 2)
+
+    def test_initial_does_not_bridge_conflicting_full_names(self):
+        a = paper(authors=["Andrzej Ehrenfeucht"])
+        b = paper(authors=["Adam Ehrenfeucht"])
+        initial = paper(authors=["Ehrenfeucht, A."])
+        for order in permutations([a, b, initial]):
+            self.assertEqual(len(self.fetcher._deduplicate(order)), 3)
+
+    def test_compatible_author_format_cannot_override_distinct_dois(self):
+        a = paper(authors=["Andrzej Ehrenfeucht"], doi="10.1234/a")
+        b = paper(authors=["Ehrenfeucht, A."], doi="10.1234/b")
+        for order in permutations([a, b]):
+            self.assertEqual(len(self.fetcher._deduplicate(order)), 2)
+
     def test_normalized_same_doi_is_strong_signal(self):
         a = paper(doi=' HTTPS://DX.DOI.ORG/10.1234/ABC ', authors=[])
         b = paper(title='', doi='doi:10.1234/abc', authors=[])

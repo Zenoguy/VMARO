@@ -9,6 +9,7 @@ import re
 import time
 import json
 import math
+import unicodedata
 import requests
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -768,6 +769,61 @@ class MultiAPIFetcher:
             and "posted-content" not in work_types[publication]
         }
 
+    @staticmethod
+    def _first_author_parts(paper):
+        """Read one author entry. Only a comma explicitly signals surname-first."""
+        authors = paper.get("authors")
+        if not isinstance(authors, (list, tuple)) or not authors:
+            return None
+        name = authors[0]
+        if not isinstance(name, str):
+            return None
+        name = unicodedata.normalize("NFC", unicodedata.normalize("NFKC", name).casefold())
+        name = name.translate(str.maketrans({"’": "'", "‐": "-", "‑": "-"}))
+        parts = name.split(",")
+        if len(parts) == 2:
+            family, given = (part.strip() for part in parts)
+        elif len(parts) == 1:
+            tokens = name.split()
+            if len(tokens) < 2:
+                return None
+            family, given = tokens[-1], " ".join(tokens[:-1])
+        else:
+            return None
+
+        def name_word(word):
+            # Retain accents and meaningful apostrophes and hyphens.
+            return all(
+                part and part[0].isalpha()
+                and all(c.isalpha() or unicodedata.category(c).startswith("M") for c in part)
+                for part in re.split(r"[-']", word)
+            )
+
+        given = tuple(token.removesuffix(".") if len(token) == 2 else token
+                      for token in given.split())
+        family = tuple(family.split())
+        if (not given or not family or not all(map(name_word, given + family))
+                or any(len(word) == 1 for word in family)):
+            return None
+        return family, given
+
+    @staticmethod
+    def _authors_match(left, right):
+        if left is None or right is None:
+            return False
+        left_family, left_given = left
+        right_family, right_given = right
+        if left_family != right_family or len(left_given) != len(right_given):
+            return False
+        # An initial can abbreviate a compatible given name, but two
+        # initial-only entries do not provide enough evidence on their own.
+        if not any(len(word) > 1 for word in left_given + right_given):
+            return False
+        return all(
+            a == b or (min(len(a), len(b)) == 1 and a[0] == b[0])
+            for a, b in zip(left_given, right_given)
+        )
+
     def _deduplicate(self, papers: List[Dict]) -> List[Dict]:
         """Group directly compatible records, retaining their provenance."""
         links = self._preprint_links(papers)
@@ -782,15 +838,6 @@ class MultiAPIFetcher:
                 return ""
             return ' '.join(re.sub(r'[^\w\s]', '', value.casefold()).split())
 
-        def first_author(p):
-            authors = p.get("authors")
-            if not isinstance(authors, (list, tuple)) or not authors:
-                return ""
-            name = authors[0]
-            if not isinstance(name, str):
-                return ""
-            return ' '.join(re.sub(r'[^\w\s]', '', name.casefold()).split())
-
         def compatible(a, b):
             da, db = doi_of(a), doi_of(b)
             if da and db:
@@ -798,14 +845,22 @@ class MultiAPIFetcher:
             # An unparseable supplied DOI is not evidence of an absent DOI.
             if (a.get("doi") and not da) or (b.get("doi") and not db):
                 return False
-            title, author = title_of(a), first_author(a)
-            return bool(title and author and title == title_of(b)
-                        and author == first_author(b))
+            title = title_of(a)
+            return bool(title and title == title_of(b) and self._authors_match(
+                self._first_author_parts(a), self._first_author_parts(b)
+            ))
 
-        # Resolve DOI groups first. A DOI-free record compatible with multiple
-        # groups is ambiguous and must not bridge them, regardless of order.
+        # Resolve DOI groups first. Among DOI-free records, consider fuller
+        # names first so an initial can be checked against competing names.
+        def match_order(item):
+            _, paper = item
+            if doi_of(paper):
+                return (0, 0)
+            author = self._first_author_parts(paper)
+            return (1, sum(len(word) == 1 for word in author[1]) if author else 0)
+
         groups = []
-        ordered = sorted(enumerate(papers), key=lambda item: not bool(doi_of(item[1])))
+        ordered = sorted(enumerate(papers), key=match_order)
         for index, paper in ordered:
             matches = [group for group in groups
                        if all(compatible(paper, member) for _, member in group)]
