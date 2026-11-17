@@ -27,7 +27,7 @@ def call_gemini_with_retry(prompt, system_instruction=None, retries=6):
     Renamed from call_gemini_with_retry for backward compatibility.
     """
     client = get_groq_client()
-    model_name = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+    model_name = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
     for attempt in range(retries):
         try:
             messages = []
@@ -35,14 +35,23 @@ def call_gemini_with_retry(prompt, system_instruction=None, retries=6):
                 messages.append({"role": "system", "content": system_instruction})
             messages.append({"role": "user", "content": prompt})
             
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=messages,
-                response_format={"type": "json_object"},
-                temperature=0.6,
-                max_completion_tokens=2048,
-                top_p=0.95,
-            )
+            kwargs = {
+                "model": model_name,
+                "messages": messages,
+                "response_format": {"type": "json_object"},
+                "temperature": 1,
+                "max_completion_tokens": 2048,
+                "top_p": 1,
+                "reasoning_effort": "medium",
+            }
+            try:
+                response = client.chat.completions.create(**kwargs)
+            except Exception as param_err:
+                if "reasoning_effort" in str(param_err).lower():
+                    kwargs.pop("reasoning_effort", None)
+                    response = client.chat.completions.create(**kwargs)
+                else:
+                    raise param_err
             
             # Create a response object that mimics Gemini's structure
             class GroqResponse:

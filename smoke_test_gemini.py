@@ -37,15 +37,25 @@ def test_env_keys():
 def test_basic_completion():
     print("\n[3/4] Testing basic Groq completion...")
     try:
-        model = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+        model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
         client = Groq(api_key=get_api_key()) if get_api_key() else Groq()
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": "Reply with exactly one word: OK"}],
-            temperature=0.6,
-            max_completion_tokens=2048,
-            top_p=0.95
-        )
+        kwargs = {
+            "model": model,
+            "messages": [{"role": "user", "content": "Reply with exactly one word: OK"}],
+            "temperature": 1,
+            "max_completion_tokens": 2048,
+            "top_p": 1,
+            "reasoning_effort": "medium"
+        }
+        try:
+            response = client.chat.completions.create(**kwargs)
+        except Exception as param_err:
+            if "reasoning_effort" in str(param_err).lower():
+                kwargs.pop("reasoning_effort", None)
+                response = client.chat.completions.create(**kwargs)
+            else:
+                raise param_err
+
         text = response.choices[0].message.content.strip()
         if "OK" in text.upper():
             print(f"  ✅ Model ({model}) responded: '{text}'")
@@ -59,21 +69,30 @@ def test_basic_completion():
 def test_json_output():
     print("\n[4/4] Testing structured JSON output...")
     try:
-        model = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+        model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
         client = Groq(api_key=get_api_key()) if get_api_key() else Groq()
         prompt = """Return ONLY valid JSON — no markdown, no extra text:
 {
   "status": "ok",
   "message": "groq json test passed"
 }"""
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0.6,
-            max_completion_tokens=2048,
-            top_p=0.95
-        )
+        kwargs = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "response_format": {"type": "json_object"},
+            "temperature": 1,
+            "max_completion_tokens": 2048,
+            "top_p": 1,
+            "reasoning_effort": "medium"
+        }
+        try:
+            response = client.chat.completions.create(**kwargs)
+        except Exception as param_err:
+            if "reasoning_effort" in str(param_err).lower():
+                kwargs.pop("reasoning_effort", None)
+                response = client.chat.completions.create(**kwargs)
+            else:
+                raise param_err
         raw = response.choices[0].message.content
         parsed = safe_parse(raw)
 
