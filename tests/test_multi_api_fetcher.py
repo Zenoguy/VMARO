@@ -77,6 +77,77 @@ class DeduplicationTests(unittest.TestCase):
         for order in permutations([a, b]):
             self.assertEqual(len(self.fetcher._deduplicate(order)), 2)
 
+    def test_cora_observed_middle_name_and_multi_initial_patterns(self):
+        for left, right, expected in (
+            ("Ronald L. Rivest", "R. Rivest", 1),
+            ("David D. Lewis", "Lewis, D. D.", 1),
+            ("M. J. Kearns", "Kearns, M. J.", 1),
+            ("M. Kearns", "Kearns, M. J.", 2),
+            ("Michael J. Kearns", "Michael R. Kearns", 2),
+        ):
+            for order in permutations([paper(authors=[left]), paper(authors=[right])]):
+                with self.subTest(left=left, right=right):
+                    self.assertEqual(len(self.fetcher._deduplicate(order)), expected)
+
+    def test_omitted_middle_name_does_not_bridge_conflicting_middle_names(self):
+        records = [paper(authors=[name]) for name in
+                   ("Michael J. Kearns", "Michael Kearns", "Michael R. Kearns")]
+        for order in permutations(records):
+            self.assertEqual(len(self.fetcher._deduplicate(order)), 3)
+
+    def test_ordered_coauthors_corroborate_abbreviated_first_author(self):
+        a = paper(authors=["M. Kearns", "L. G. Valiant"], doi="10.1234/a", url="pub")
+        b = paper(authors=["Kearns, M. J.", "Valiant, Leslie G."], url="preprint")
+        for order in permutations([a, b]):
+            merged, = self.fetcher._deduplicate(order)
+            self.assertEqual(merged["duplicate_records"][0]["url"], "preprint")
+
+        for other in (
+            dict(b, doi="10.1234/b"),
+            dict(b, title="A Different Paper"),
+            dict(b, authors=["Kearns, M. J.", "Valiant, Robert G."]),
+            dict(b, authors=["Kearns, M. J.", None]),
+            dict(b, authors=["Valiant, Leslie G.", "Kearns, M. J."]),
+            dict(b, authors=["Kearns, M. J."]),
+        ):
+            for order in permutations([a, other]):
+                self.assertEqual(len(self.fetcher._deduplicate(order)), 2)
+
+    def test_coauthor_evidence_cannot_bridge_conflicting_names(self):
+        records = [paper(authors=[name, "L. Valiant"]) for name in
+                   ("Michael J. Kearns", "M. Kearns", "Matthew Kearns")]
+        for order in permutations(records):
+            self.assertEqual(len(self.fetcher._deduplicate(order)), 3)
+
+    def test_full_name_in_group_corroborates_compatible_initials(self):
+        full = paper(authors=["Robert E. Schapire"])
+        longer = paper(authors=["Schapire, R. E."])
+        shorter = paper(authors=["R. Schapire"])
+        for order in permutations([full, longer, shorter]):
+            self.assertEqual(len(self.fetcher._deduplicate(order)), 1)
+        for order in permutations([longer, shorter]):
+            self.assertEqual(len(self.fetcher._deduplicate(order)), 2)
+
+    def test_full_name_cannot_corroborate_conflicting_initials(self):
+        full = paper(authors=["Robert Schapire"])
+        e = paper(authors=["R. E. Schapire"])
+        a = paper(authors=["R. A. Schapire"])
+        for order in permutations([full, e, a]):
+            self.assertEqual(len(self.fetcher._deduplicate(order)), 2)
+
+    def test_reordered_coauthors_require_unique_compatible_names(self):
+        a = paper(authors=["N. Cesa-Bianchi", "Y. Freund", "D. Haussler"])
+        b = paper(authors=["Cesa-Bianchi, N.", "Haussler, David", "Freund, Yoav"])
+        for order in permutations([a, b]):
+            self.assertEqual(len(self.fetcher._deduplicate(order)), 1)
+        for other in (
+            dict(b, authors=["Cesa-Bianchi, N.", "Haussler, Michael", "Freund, Yoav"]),
+            dict(b, authors=["Haussler, David", "Cesa-Bianchi, N.", "Freund, Yoav"]),
+            dict(b, title="A different title"),
+        ):
+            for order in permutations([a, other]):
+                self.assertEqual(len(self.fetcher._deduplicate(order)), 2)
+
     def test_normalized_same_doi_is_strong_signal(self):
         a = paper(doi=' HTTPS://DX.DOI.ORG/10.1234/ABC ', authors=[])
         b = paper(title='', doi='doi:10.1234/abc', authors=[])

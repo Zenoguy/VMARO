@@ -11,7 +11,7 @@ import json
 import math
 import unicodedata
 import requests
-from collections import defaultdict
+from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict
 
@@ -775,7 +775,10 @@ class MultiAPIFetcher:
         authors = paper.get("authors")
         if not isinstance(authors, (list, tuple)) or not authors:
             return None
-        name = authors[0]
+        return MultiAPIFetcher._author_parts(authors[0])
+
+    @staticmethod
+    def _author_parts(name):
         if not isinstance(name, str):
             return None
         name = unicodedata.normalize("NFC", unicodedata.normalize("NFKC", name).casefold())
@@ -813,19 +816,84 @@ class MultiAPIFetcher:
             return False
         left_family, left_given = left
         right_family, right_given = right
-        if left_family != right_family or len(left_given) != len(right_given):
+        if left_family != right_family:
             return False
-        # An initial can abbreviate a compatible given name, but two
-        # initial-only entries do not provide enough evidence on their own.
         if not any(len(word) > 1 for word in left_given + right_given):
-            return False
+            # Two aligned initials provide more evidence than one. Keep
+            # differing or incomplete initial-only forms separate.
+            return len(left_given) >= 2 and left_given == right_given
+        if len(left_given) != len(right_given):
+            # Omitted middle names are common. Require a spelled-out first
+            # given name on at least one side before comparing a prefix.
+            if max(len(left_given[0]), len(right_given[0])) == 1:
+                return False
         return all(
             a == b or (min(len(a), len(b)) == 1 and a[0] == b[0])
             for a, b in zip(left_given, right_given)
         )
 
+    def _author_roster(self, paper):
+        authors = paper.get("authors")
+        if not isinstance(authors, (list, tuple)) or len(authors) < 2:
+            return ()
+        roster = tuple(map(self._author_parts, authors))
+        return roster if all(roster) else ()
+
+    def _align_rosters(self, left, right):
+        # Keep first author fixed. Reorder coauthors only when each surname
+        # identifies a unique position in both lists.
+        a = {family: given for family, given in left}
+        b = {family: given for family, given in right}
+        if len(a) == len(left) and len(b) == len(right) and a.keys() == b.keys():
+            right = tuple((family, b[family]) for family, _ in left)
+        return zip(left, right)
+
+    def _coauthors_support_match(self, left, right):
+        """Require corroboration from a compatible first author and coauthors."""
+        a, b = self._author_roster(left), self._author_roster(right)
+        if not a or len(a) != len(b) or a[0][0] != b[0][0]:
+            return False
+        if len({family for family, _ in a}) < 2:
+            return False
+        return all(
+            a_family == b_family and all(
+                x == y or (min(len(x), len(y)) == 1 and x[0] == y[0])
+                for x, y in zip(a_given, b_given)
+            )
+            for (a_family, a_given), (b_family, b_given) in self._align_rosters(a, b)
+        )
+
+    def _roster_priority(self, papers, title_of):
+        """Give repeated exact rosters priority within an exact-title bucket."""
+        signatures = {}
+        for index, paper in enumerate(papers):
+            if paper.get("doi"):
+                continue
+            title, roster = title_of(paper), self._author_roster(paper)
+            if title and roster:
+                signatures[index] = title, roster
+        support = Counter(signatures.values())
+        return {index: support[signature] - 1 for index, signature in signatures.items()}
+
+    @staticmethod
+    def _abbreviations_share_full_name(left, right, anchors):
+        """Corroborate compatible initials using a specific name in the group."""
+        if not left or not right or left[0] != right[0]:
+            return False
+        a, b = left[1], right[1]
+        if any(len(word) != 1 for word in a + b):
+            return False
+        longer = max((a, b), key=len)
+        if a != longer[:len(a)] or b != longer[:len(b)]:
+            return False
+        return any(
+            family == left[0] and len(given[0]) > 1 and len(given) >= len(longer)
+            and tuple(word[0] for word in given[:len(longer)]) == longer
+            for family, given in anchors
+        )
+
     def _deduplicate(self, papers: List[Dict]) -> List[Dict]:
-        """Group directly compatible records, retaining their provenance."""
+        """Group compatible records, retaining their provenance."""
         links = self._preprint_links(papers)
         publications = set(links.values())
 
@@ -846,24 +914,58 @@ class MultiAPIFetcher:
             if (a.get("doi") and not da) or (b.get("doi") and not db):
                 return False
             title = title_of(a)
-            return bool(title and title == title_of(b) and self._authors_match(
-                self._first_author_parts(a), self._first_author_parts(b)
-            ))
+            if not title or title != title_of(b):
+                return False
+            return (self._authors_match(self._first_author_parts(a), self._first_author_parts(b))
+                    or self._coauthors_support_match(a, b))
+
+        def fits_group(paper, group):
+            unmatched = [member for _, member in group if not compatible(paper, member)]
+            if not unmatched:
+                return True
+            # This rule only applies to DOI-free, exact-title comparisons.
+            title = title_of(paper)
+            if paper.get("doi") or not title:
+                return False
+            if any(member.get("doi") or title_of(member) != title for member in unmatched):
+                return False
+            author = self._first_author_parts(paper)
+            anchors = [
+                parts for _, member in group
+                if title_of(member) == title
+                and (parts := self._first_author_parts(member)) is not None
+            ]
+            if not author or not anchors:
+                return False
+            for member in unmatched:
+                member_author = self._first_author_parts(member)
+                if not member_author:
+                    return False
+                # Preserve conflicts between two supplied author rosters.
+                if len(paper["authors"]) > 1 and len(member["authors"]) > 1:
+                    return False
+                if not self._abbreviations_share_full_name(author, member_author, anchors):
+                    return False
+            return True
 
         # Resolve DOI groups first. Among DOI-free records, consider fuller
         # names first so an initial can be checked against competing names.
+        roster_priority = self._roster_priority(papers, title_of)
+
         def match_order(item):
-            _, paper = item
+            index, paper = item
             if doi_of(paper):
-                return (0, 0)
+                return (0, 0, 0, 0)
             author = self._first_author_parts(paper)
-            return (1, sum(len(word) == 1 for word in author[1]) if author else 0)
+            given = author[1] if author else ()
+            return (1, -sum(len(word) > 1 for word in given),
+                    -roster_priority.get(index, 0), -len(given))
 
         groups = []
         ordered = sorted(enumerate(papers), key=match_order)
         for index, paper in ordered:
             matches = [group for group in groups
-                       if all(compatible(paper, member) for _, member in group)]
+                       if fits_group(paper, group)]
             if len(matches) == 1:
                 matches[0].append((index, paper))
             else:
