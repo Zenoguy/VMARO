@@ -5,6 +5,7 @@ Sits between Agent 4 (Methodology) and Agent 5 (Grant Writing).
 Takes topic + methodology summary + format summaries → selects best format_id.
 """
 
+import os
 import json
 from utils.schema import safe_parse, call_gemini_with_retry
 from utils.format_loader import format_summary_list
@@ -43,6 +44,16 @@ def run(
         "reasoning": "Fallback — format matching failed, used first available format.",
         "llm_selected": False,
     }
+
+    # ── MOCK_MODE path ───────────────────────────────────────────────────────
+    if os.getenv("MOCK_MODE", "").lower() == "true":
+        mock_id = "nsf_cise" if "nsf_cise" in formats else fallback_id
+        return {
+            "selected_format_id": mock_id,
+            "selected_format": formats.get(mock_id, {}),
+            "reasoning": "Mock mode format selection.",
+            "llm_selected": False,
+        }
 
     # ── User override path ───────────────────────────────────────────────────
     if user_override:

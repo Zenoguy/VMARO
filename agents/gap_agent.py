@@ -1,9 +1,14 @@
+import os
 import json
 from utils.schema import safe_parse, call_gemini_with_retry
 
 def run(tree: dict, trends: dict) -> dict:
     print("[Agent3]       Gap Identification")
     
+    if os.getenv("MOCK_MODE", "").lower() == "true":
+        with open("mock_data/mock_gaps.json") as f:
+            return json.load(f)
+
     fallback = {
         "identified_gaps": [],
         "selected_gap": ""

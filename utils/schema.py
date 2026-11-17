@@ -13,9 +13,22 @@ if not keys and os.getenv("GROQ_API_KEY"):
     keys = [os.getenv("GROQ_API_KEY")]
 key_pool = itertools.cycle(keys) if keys else None
 
+def get_key_pool():
+    global key_pool
+    keys = [k for k in [os.getenv(f"GROQ_API_KEY_{i}") for i in (1, 2, 3)] if k]
+    if not keys and os.getenv("GROQ_API_KEY"):
+        keys = [os.getenv("GROQ_API_KEY")]
+    if keys:
+        if not key_pool:
+            key_pool = itertools.cycle(keys)
+    else:
+        key_pool = None
+    return key_pool
+
 def get_api_key() -> str:
     """Return the next API key from the pool."""
-    return next(key_pool) if key_pool else ""
+    pool = get_key_pool()
+    return next(pool) if pool else ""
 
 def get_groq_client():
     key = get_api_key()

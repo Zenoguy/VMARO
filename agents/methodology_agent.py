@@ -1,9 +1,14 @@
+import os
 import json
 from utils.schema import safe_parse, call_gemini_with_retry
 
 def run(gap_description: str, topic: str) -> dict:
     print("[Agent4]       Methodology Design")
     
+    if os.getenv("MOCK_MODE", "").lower() == "true":
+        with open("mock_data/mock_methodology.json") as f:
+            return json.load(f)
+
     fallback = {
         "suggested_datasets": [],
         "evaluation_metrics": [],

@@ -1,9 +1,14 @@
+import os
 import json
 from utils.schema import safe_parse, call_gemini_with_retry
 
 def run(grant: dict, tree: dict) -> dict:
     print("[Agent6]       Novelty Scoring")
     
+    if os.getenv("MOCK_MODE", "").lower() == "true":
+        with open("mock_data/mock_novelty.json") as f:
+            return json.load(f)
+
     fallback = {
         "closest_papers": [],
         "similarity_reasoning": "Failed to generate novelty score.",
@@ -12,10 +17,15 @@ def run(grant: dict, tree: dict) -> dict:
     }
 
     try:
+        themes = (tree or {}).get("themes", [])
+        if not themes:
+            print("  ⚠️ No themes available for novelty scoring.")
+            return fallback
+
         # Step 1 — Theme Navigation
         theme_names_and_ids = [
             {"theme_id": t.get("theme_id"), "theme_name": t.get("theme_name")} 
-            for t in tree.get("themes", [])
+            for t in themes
         ]
         
         sys_inst1 = f"""You are a research evaluator.

@@ -4,6 +4,7 @@ Now receives a selected_format dict from FormatMatcher and adapts
 its system prompt and section structure accordingly.
 """
 
+import os
 import json
 from utils.schema import safe_parse, call_gemini_with_retry
 
@@ -23,7 +24,7 @@ def _build_section_instructions(sections: list) -> str:
     return "\n".join(lines)
 
 
-def run(topic: str, gap_description: str, methodology: dict, format_selection: dict) -> dict:
+def run(topic: str, gap_description: str, methodology: dict, format_selection: dict = None) -> dict:
     """
     Generate a grant proposal shaped by the selected grant format.
 
@@ -37,6 +38,13 @@ def run(topic: str, gap_description: str, methodology: dict, format_selection: d
         Schema 5 — grant proposal JSON, structured per the selected format.
     """
     print("[Agent5]       Grant Writing")
+
+    if os.getenv("MOCK_MODE", "").lower() == "true":
+        with open("mock_data/mock_grant.json") as f:
+            return json.load(f)
+
+    if not format_selection:
+        format_selection = {}
 
     fallback = {
         "title": f"Research Proposal: {topic}",

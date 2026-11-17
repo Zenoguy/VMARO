@@ -1,9 +1,14 @@
+import os
 import json
 from utils.schema import safe_parse, call_gemini_with_retry
 
 def run(tree: dict) -> dict:
     print("[Agent2]       Trend Analysis")
     
+    if os.getenv("MOCK_MODE", "").lower() == "true":
+        with open("mock_data/mock_trends.json") as f:
+            return json.load(f)
+
     fallback = {
         "dominant_clusters": [],
         "emerging_trends": []

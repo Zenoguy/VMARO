@@ -17,6 +17,14 @@ Return ONLY valid JSON:
 
 def evaluate_quality(stage_name: str, output_json: dict) -> dict:
     """Send prompt, parse response, return decision."""
+    if os.getenv("MOCK_MODE", "").lower() == "true":
+        print(f"[QualityGate:{stage_name}] PASS (confidence=1.0): MOCK_MODE active")
+        return {
+            "decision": "PASS",
+            "confidence": 1.0,
+            "reason": "MOCK_MODE active — auto pass"
+        }
+
     try:
         prompt = GATE_PROMPT.format(
             stage=stage_name, 
