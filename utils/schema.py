@@ -6,7 +6,7 @@ import itertools
 from dotenv import load_dotenv
 from groq import Groq
 
-load_dotenv(override=True)
+load_dotenv()
 
 keys = [k for k in [os.getenv(f"GROQ_API_KEY_{i}") for i in (1, 2, 3)] if k]
 if not keys and os.getenv("GROQ_API_KEY"):
@@ -79,10 +79,11 @@ def call_gemini_with_retry(prompt, system_instruction=None, retries=6):
                 wait = 15
                 print(f"  503 Unavailable — waiting {wait}s before retry {attempt+1}/{retries}")
                 time.sleep(wait)
-            elif "401" in err or "invalid" in err.lower():
+            elif "401" in err or "invalid_api_key" in err.lower() or "invalid api key" in err.lower():
                 print(f"  Invalid API Key — swapping to next key in pool...")
                 client = get_groq_client()
             else:
+                print(f"  ⚠️  Groq error: {err[:120]}")
                 raise  # non-429/401/503 errors fail immediately
     raise Exception("Max retries exceeded")
 
