@@ -1,7 +1,7 @@
 """
 Multi-API Research Paper Fetcher
 Fetches papers sequentially: Semantic Scholar → arXiv → CrossRef → OpenAlex → PubMed
-Includes automatic deduplication by DOI and title similarity
+Includes conservative deduplication by DOI and exact normalized title
 """
 
 import os
@@ -710,34 +710,68 @@ class MultiAPIFetcher:
         return normalized
     
     def _deduplicate(self, papers: List[Dict]) -> List[Dict]:
-        """Remove duplicates by DOI first, then by normalized title"""
-        seen_dois = set()
-        seen_titles = set()
-        unique_papers = []
-        
-        for paper in papers:
-            # DOI-based deduplication (most reliable)
-            doi = paper.get("doi", "").strip()
-            if doi:
-                if doi in seen_dois:
-                    continue
-                seen_dois.add(doi)
-                unique_papers.append(paper)
-                continue
-            
-            # Title-based deduplication for papers without DOI
-            title = paper.get("title", "").strip()
-            if not title:
-                continue
-            
-            # Normalize title: lowercase, remove punctuation, collapse whitespace
-            normalized_title = re.sub(r'[^\w\s]', '', title.lower())
-            normalized_title = re.sub(r'\s+', ' ', normalized_title).strip()
-            
-            if normalized_title in seen_titles:
-                continue
-            
-            seen_titles.add(normalized_title)
-            unique_papers.append(paper)
-        
-        return unique_papers
+        """Group only directly compatible records, retaining their provenance.
+
+        The retrieval schema has no verified version relation or publication
+        type, so different DOIs and approximate titles are never merged.
+        """
+        def doi_of(p):
+            value = p.get("doi")
+            if not isinstance(value, str):
+                return ""
+            value = re.sub(r'^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)', '',
+                           value.strip(), flags=re.I).strip().casefold()
+            return value if re.fullmatch(r'10\.\d{4,9}/\S+', value) else ""
+
+        def title_of(p):
+            value = p.get("title")
+            if not isinstance(value, str):
+                return ""
+            return ' '.join(re.sub(r'[^\w\s]', '', value.casefold()).split())
+
+        def first_author(p):
+            authors = p.get("authors")
+            if not isinstance(authors, (list, tuple)) or not authors:
+                return ""
+            name = authors[0]
+            if not isinstance(name, str):
+                return ""
+            return ' '.join(re.sub(r'[^\w\s]', '', name.casefold()).split())
+
+        def compatible(a, b):
+            da, db = doi_of(a), doi_of(b)
+            if da and db:
+                return da == db
+            # An unparseable supplied DOI is not evidence of an absent DOI.
+            if (a.get("doi") and not da) or (b.get("doi") and not db):
+                return False
+            title, author = title_of(a), first_author(a)
+            return bool(title and author and title == title_of(b)
+                        and author == first_author(b))
+
+        # Resolve DOI groups first. A DOI-free record compatible with multiple
+        # groups is ambiguous and must not bridge them, regardless of order.
+        groups = []
+        ordered = sorted(enumerate(papers), key=lambda item: not bool(doi_of(item[1])))
+        for index, paper in ordered:
+            matches = [group for group in groups
+                       if all(compatible(paper, member) for _, member in group)]
+            if len(matches) == 1:
+                matches[0].append((index, paper))
+            else:
+                groups.append([(index, paper)])
+
+        result = []
+        for group in sorted(groups, key=lambda g: min(i for i, _ in g)):
+            # A DOI-bearing record is a useful primary, but is not necessarily
+            # a published version. Preserve all other records verbatim.
+            group.sort(key=lambda item: (not bool(doi_of(item[1])), item[0]))
+            primary = dict(group[0][1])
+            if len(group) > 1:
+                for _, other in group[1:]:
+                    for key, value in other.items():
+                        if key not in primary or primary[key] in (None, '', [], 0):
+                            primary[key] = value
+                primary["duplicate_records"] = [dict(p) for _, p in group[1:]]
+            result.append(primary)
+        return result
